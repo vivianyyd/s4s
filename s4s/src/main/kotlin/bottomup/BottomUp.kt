@@ -9,6 +9,8 @@ data class IntValue(val value: Int) : Value
 
 data class BooleanValue(val value: Boolean) : Value
 
+// TODO improve types for EvaluationResult/Value/etc
+
 typealias TypeSize = Pair<KClass<*>, Int>
 
 /** A mapping representing the result of evaluating some predicate for each example. */
@@ -53,35 +55,50 @@ class BottomUp(private val query: Query) {
         for (possSize in 1..bound) {
             IntOp.values().forEach { op ->
                 generate(
+                    2,
                     makeNode = { args -> UOp(op, args.first().first as UInt, args.last().first as UInt) },
+                    Int::class,
                     possSize
                 ).forEach { yield(it) }
             }
             Cmp.values().forEach { cmp ->
                 generate(
+                    2,
                     makeNode = { args -> UCmp(cmp, args.first().first as UInt, args.last().first as UInt) },
+                    Int::class,
                     possSize
                 ).forEach { yield(it) }
             }
             BoolOp.values().forEach { op ->
                 when (op) {
-                    BoolOp.AND, BoolOp.OR -> TODO("Very similar to [generate], but for boolean children")
-                    BoolOp.NOT -> TODO()
+                    BoolOp.AND, BoolOp.OR -> generate(
+                        2,
+                        makeNode = { args -> UBop(op, args.first().first as UBoolean, args.last().first as UBoolean) },
+                        Boolean::class,
+                        possSize
+                    ).forEach { yield(it) }
+                    BoolOp.NOT -> generate(
+                        1,
+                        makeNode = { args -> UBop(op, args.first().first as UBoolean) },
+                        Boolean::class,
+                        possSize
+                    ).forEach { yield(it) }
                 }
             }
         }
     }
 
-    /** Just here to reduce some code duplication. Assumes both children are always ints. */
+    /** Just here to reduce some code duplication. */
     private fun generate(
+        numChildren: Int,
         makeNode: (List<Pair<U, EvaluationResult>>) -> U,
+        childType: KClass<*>,
         size: Int
     ) = iterator {
-        val numChildren = 2
         for (childPartitions in intPartitions(size - 1 - numChildren, numChildren)) {
             val candidates = mutableListOf<List<Pair<U, EvaluationResult>>>()
             childPartitions.forEach { childMinusOne ->
-                typeSizeToExpr[Pair(Int::class, childMinusOne + 1)]?.let { candidates.add(it) }
+                typeSizeToExpr[Pair(childType, childMinusOne + 1)]?.let { candidates.add(it) }
             }
             if (candidates.size != numChildren) continue  // we failed to find candidates for all children, so this partition won't work
             for (candidateArgs in product(candidates.first(), candidates.last())) {
