@@ -25,12 +25,14 @@ fun main(args: Array<String>) {
     val e1 = Example(listOf(mutableListOf(1, 2), 3), listOf(1, 2, 3))
     val e2 = Example(listOf(mutableListOf<Int>(), 3), listOf(3))
 
+    val n0 = Example(listOf(mutableListOf(1, 2), 3), listOf(1, 2, 3, 4))
+
     println(checkEx(e0, t))
     println(checkEx(e1, t))
     println(checkEx(e2, t))
     println(checkFn(::f, t))
 
-    val query = Query(::f, t, listOf(e0, e1, e2), listOf(), impl)
+    val query = Query(::f, t, listOf(e0, e1, e2), listOf(n0), impl)
 
     BottomUp(query).enumerate(6)
 //    val e2 = Example(listOf(listOf(1, 2, 3)), 3)
