@@ -38,9 +38,9 @@ class BottomUp(private val query: Query) {
             yield(nodeAndEvaluated)
         }
         // The lengths of all parameters
-        val lenTerminals = (0..query.type.inputs.size).map { ULen(UParameter(it)) }
+        val lenTerminals = (0..query.type.inputs.size).map { ULen(it) }
         for (lenNode in lenTerminals) {
-            val evaluated = lenNode.evaluate(query.examples)
+            val evaluated = lenNode.evaluate(query)
             if (evaluated in valuesToExpr) continue
             valuesToExpr[evaluated] = lenNode
             typeSizeToExpr.addMulti(
@@ -86,7 +86,7 @@ class BottomUp(private val query: Query) {
             if (candidates.size != numChildren) continue  // we failed to find candidates for all children, so this partition won't work
             for (candidateArgs in product(candidates.first(), candidates.last())) {
                 val node = makeNode(candidateArgs)
-                val evaluated = node.evaluateFromCachedChildren(query.examples, candidateArgs.map { it.second })
+                val evaluated = node.evaluateFromCachedChildren(query, candidateArgs.map { it.second })
                 if (evaluated in valuesToExpr) continue
                 valuesToExpr[evaluated] = node
                 typeSizeToExpr.addMulti(Pair(Int::class, size), Pair(node, evaluated))
