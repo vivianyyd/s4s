@@ -11,7 +11,7 @@ interface U {
 
 interface UBoolean : U
 
-data class UCmp(val cmp: Cmp, val left: UInt, val right: UInt) : UBoolean {
+data class UCmp(val cmp: Cmp, val left: ULen, val right: UInt) : UBoolean {
     override fun evaluateFromCachedChildren(
         query: Query,
         cachedChildren: List<EvaluationResult>

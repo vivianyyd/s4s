@@ -3,8 +3,16 @@ package util
 import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
 
-data class Query(val f: KFunction<Any>, val type: Type, val examples: List<Example>, val uImpl: UPrimImpl) {
+data class Query(
+    val f: KFunction<Any>,
+    val type: Type,
+    val posExamples: List<Example>,
+    val negExamples: List<Example>,  // must still be valid types TODO testing: check if we can get expressive examples just with the same inputs but diff outputs. or do the inputs need to be diff
+    val uImpl: UPrimImpl
+) {
     val lens: Map<Any, Int>
+    val examples = posExamples + negExamples
+    val argsWithUndefinedLength: Set<Int>
 
     init {
         assert(checkFn(f, type))
@@ -12,15 +20,15 @@ data class Query(val f: KFunction<Any>, val type: Type, val examples: List<Examp
 
         // Construct map of lengths and confirm that they were successfully computed
         lens = mutableMapOf()
-        assert(null !in examples.flatMap { ex ->
-            (ex.inputs + listOf(ex.output)).map {
+        argsWithUndefinedLength = mutableSetOf()
+        examples.flatMap { ex ->
+            (ex.inputs + listOf(ex.output)).mapIndexed { i, it ->
                 try {
                     lens[it] = uImpl.len(it)
-                    lens[it]
-                } catch (e: Exception) {
-                    null
+                } catch (_: Exception) {
+                    argsWithUndefinedLength.add(i)
                 }
             }
-        })
+        }
     }
 }
