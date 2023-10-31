@@ -41,7 +41,7 @@ class BottomUp(private val query: Query) {
             )
         }
         // The lengths of all parameters
-        val lenTerminals = (0..query.type.inputs.size).filter { it !in query.argsWithUndefinedLength }.map { ULen(it) }
+        val lenTerminals = ((-1 until query.type.inputs.size)).filter { it !in query.argsWithUndefinedLength }.map { ULen(it) }
         val lenNodes = mutableListOf<Pair<U, EvaluationResult>>()
         for (lenNode in lenTerminals) {
             val evaluated = lenNode.evaluate(query)

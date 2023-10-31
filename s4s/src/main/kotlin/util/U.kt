@@ -26,6 +26,8 @@ data class UCmp(val cmp: Cmp, val left: ULen, val right: UInt) : UBoolean {
             )
         }
     }
+
+    override fun toString() = "$left $cmp $right"
 }
 
 data class UBop(val op: BoolOp, val left: UBoolean, val right: UBoolean? = null) : UBoolean {
@@ -57,6 +59,11 @@ data class UBop(val op: BoolOp, val left: UBoolean, val right: UBoolean? = null)
             }
         }
     }
+
+    override fun toString() = when (op) {
+        BoolOp.AND, BoolOp.OR -> "$left $op $right"
+        BoolOp.NOT -> "$op $left"
+    }
 }
 
 interface UInt : U
@@ -69,16 +76,17 @@ data class ULiteral(val value: Int) : UInt {
         assert(cachedChildren.isEmpty())
         return query.examples.associateWith { IntValue(value) }
     }
+
+    override fun toString() = "$value"
 }
 
 /**
- * @param parameter: The index of the parameter. For a function with n inputs, the first argument is parameter 0 and
- * the output is parameter n.
+ * @param parameter: The index of the parameter. The output is index -1.
  */
 data class ULen(val parameter: Int) : UInt {
     fun evaluate(query: Query): EvaluationResult {
         return query.examples.associateWith { ex ->
-            val element = if (parameter == query.type.inputs.size) ex.output else ex.inputs[parameter]
+            val element = if (parameter == -1) ex.output else ex.inputs[parameter]
             IntValue(query.lens[element]!!)
         }
     }
@@ -90,6 +98,8 @@ data class ULen(val parameter: Int) : UInt {
         assert(cachedChildren.isEmpty())
         return evaluate(query)
     }
+
+    override fun toString() = if (parameter == -1) "len(out)" else "len(x$parameter)"
 }
 
 data class UOp(val op: IntOp, val left: UInt, val right: UInt) : UInt {
@@ -107,30 +117,37 @@ data class UOp(val op: IntOp, val left: UInt, val right: UInt) : UInt {
             )
         }
     }
+
+    override fun toString() = "$left $op $right"
 }
 
-enum class Cmp(val commutative: Boolean = false, val evaluate: (Int, Int) -> Boolean) {
+enum class Cmp(val commutative: Boolean = false, val evaluate: (Int, Int) -> Boolean, val str: String) {
     EQ(true,
-        { x, y -> x == y }),
-    LT(evaluate = { x, y -> x < y }),
-    GT(evaluate = { x, y -> x > y }),
-    LE(evaluate = { x, y -> x <= y }),
-    GE(evaluate = { x, y -> x >= y })
+        { x, y -> x == y }, "="
+    ),
+    LT(evaluate = { x, y -> x < y }, str = "<"),
+    GT(evaluate = { x, y -> x > y }, str = ">"),
+    LE(evaluate = { x, y -> x <= y }, str = "<="),
+    GE(evaluate = { x, y -> x >= y }, str = ">=");
+
+    override fun toString() = this.str
 }
 
-enum class BoolOp(val commutative: Boolean = false, val evaluate: (Boolean, Boolean?) -> Boolean) {
-    AND(true, { x, y -> x && y!! }),
-    OR(true, { x, y -> x || y!! }),
-    NOT(evaluate = { x, _ -> !x })
+enum class BoolOp(val commutative: Boolean = false, val evaluate: (Boolean, Boolean?) -> Boolean, val str: String) {
+    AND(true, { x, y -> x && y!! }, "&&"),
+    OR(true, { x, y -> x || y!! }, "||"),
+    NOT(evaluate = { x, _ -> !x }, str = "!");
+
+    override fun toString() = this.str
 }
 
-enum class IntOp(val commutative: Boolean = false, val evaluate: (Int, Int) -> Int) {
-    ADD(true, { x, y -> x + y }),
-    MUL(true, { x, y -> x * y }),
-    SUB(evaluate = { x, y -> x - y });
+enum class IntOp(val commutative: Boolean = false, val evaluate: (Int, Int) -> Int, val str: String) {
+    ADD(true, { x, y -> x + y }, "+"),
+    MUL(true, { x, y -> x * y }, "*"),
+    SUB(evaluate = { x, y -> x - y }, str = "-");
 //    DIV
 
-    override fun toString() = super.toString().lowercase()
+    override fun toString() = this.str
 }
 
 interface UPrimImpl {

@@ -21,13 +21,18 @@ data class Query(
         // Construct map of lengths and confirm that they were successfully computed
         lens = mutableMapOf()
         argsWithUndefinedLength = mutableSetOf()
-        examples.flatMap { ex ->
-            (ex.inputs + listOf(ex.output)).mapIndexed { i, it ->
+        examples.forEach { ex ->
+            (ex.inputs).mapIndexed { i, it ->
                 try {
                     lens[it] = uImpl.len(it)
                 } catch (_: Exception) {
                     argsWithUndefinedLength.add(i)
                 }
+            }
+            try {
+                lens[ex.output] = uImpl.len(ex.output)
+            } catch (_: Exception) {
+                argsWithUndefinedLength.add(-1)
             }
         }
     }
