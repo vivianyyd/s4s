@@ -6,7 +6,9 @@ import kotlin.reflect.KFunction
 data class Example(
     val inputs: List<Any>,
     val output: Any
-)
+) {
+    val args = inputs + listOf(output)
+}
 
 data class Type(
     val inputs: List<KClass<*>>,
