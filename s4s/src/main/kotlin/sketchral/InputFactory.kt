@@ -221,7 +221,7 @@ class InputFactory(val query: Query) {
         eGen.add("if (t == 0) { return 0; }")
         eGen.add("if (t == 1) { return 1; }")
         (0..numInputs).filter { lenDefinedForParam(it) }.forEachIndexed { i, param ->
-            eGen.add("if (t == ${i + 2}) { return length(${if (param == numInputs) "o" else "x$param"}); }")
+            eGen.add("if (t == ${i + 2}) { return length${paramToSketchDepthInt[param]}(${if (param == numInputs) "o" else "x$param"}); }")
         }
         eGen.add("int e1 = E_gen($argsCall);")
         eGen.add("int e2 = E_gen($argsCall);")
