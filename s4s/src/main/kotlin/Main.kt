@@ -47,7 +47,6 @@ val addQuery by lazy {
     val t = Type(listOf(MutableList::class, Int::class), List::class)
 
     val posExamplesAdd = mutableListOf<Example>()
-    posExamplesAdd.add(Example(listOf(mutableListOf(1, 2, 3), 5), listOf(1, 2, 3, 5)))
     posExamplesAdd.add(Example(listOf(mutableListOf(1, 2), 3), listOf(1, 2, 3)))
     posExamplesAdd.add(Example(listOf(mutableListOf<Int>(), 3), listOf(3)))
 
@@ -64,12 +63,9 @@ val addAllQuery by lazy {
     posExamplesAddAll.add(Example(listOf(mutableListOf(1, 2, 3), listOf(5)), listOf(1, 2, 3, 5)))
     posExamplesAddAll.add(Example(listOf(mutableListOf(1, 2), listOf()), listOf(1, 2)))
     posExamplesAddAll.add(Example(listOf(mutableListOf(), listOf(3)), listOf(3)))
-    posExamplesAddAll.add(Example(listOf(mutableListOf(1, 2, 3), listOf(5, 7, 9)), listOf(1, 2, 3, 5, 7, 9)))
 
     val negExamplesAddAll = mutableListOf<Example>()
     negExamplesAddAll.add(Example(listOf(mutableListOf(1, 2), listOf(3)), listOf(1, 2, 3, 4)))
-    negExamplesAddAll.add(Example(listOf(mutableListOf(1, 2), listOf(3)), listOf(1, 2)))
-    negExamplesAddAll.add(Example(listOf(mutableListOf(1, 2), listOf()), listOf(1, 2, 3)))
 
     Query(::addAll, t, posExamplesAddAll, negExamplesAddAll, ListImpl)
 }
@@ -84,7 +80,6 @@ val dupQuery by lazy {
     posExamplesAddAll.add(Example(listOf(listOf<Int>()), listOf<Int>()))
 
     val negExamplesAddAll = mutableListOf<Example>()
-    negExamplesAddAll.add(Example(listOf(listOf<Int>()), listOf(1)))
     negExamplesAddAll.add(Example(listOf(listOf(1, 2)), listOf(1, 2)))
 
     Query(::addAll, t, posExamplesAddAll, negExamplesAddAll, ListImpl)
