@@ -3,6 +3,8 @@ package sketchral
 import util.Query
 import util.Example
 import util.U
+import util.UInt
+import kotlin.reflect.jvm.internal.impl.types.TypeCheckerState.SupertypesPolicy.None
 
 typealias Lambdas = Map<String, String>
 typealias Examples = List<Example>
@@ -12,7 +14,10 @@ class PropertySynthesizer(query: Query) {
 
     // TODO timeout variable up here and make each step check for timeout
 
-    val phiTruth = "out = true" // Synthesized property. Might delete
+    val phiTruth = null//"out = true" // Synthesized property. Might delete
+    var outerIterator = 0
+    var innerIterator = 0
+    val discardAll = false
 
     private fun callSketch(sketchInput: String): Pair<String?, Int> {
         // TODO Write temp file containing [code] as the sketch input
@@ -49,16 +54,16 @@ class PropertySynthesizer(query: Query) {
         } else return Pair(null, null)
     }
 
-    /**
-     *
-     * arg notes: lams we have no idea about and may be perpetually empty
-     * maxsatInput generates harnesses that are required to fulfill the neg must example,and harnesses that fulfill as many may conditions as possible
-     * maxSynth tries to run sketch on the maxSat harnesses,
-     * ==> this returns the result of one step of trying to generate new L properties off of the old one and fulfilling as many "may"s as possible
-     *     the output is: additional mays, changes, synthesized property, and synthesized lambdas.
-     *
-     * **/
-    fun maxSynth(
+/**
+ *
+ * arg notes: lams we have no idea about and may be perpetually empty
+ * maxsatInput generates harnesses that are required to fulfill the neg must example,and harnesses that fulfill as many may conditions as possible
+ * maxSynth tries to run sketch on the maxSat harnesses,
+ * ==> this returns the result of one step of trying to generate new L properties off of the old one and fulfilling as many "may"s as possible
+ *     the output is: additional mays, changes, synthesized property, and synthesized lambdas.
+ *
+ * **/
+    fun maxSynthesize(
         pos: Examples,
         negMust: Examples,
         negMay: Examples,
@@ -133,28 +138,119 @@ class PropertySynthesizer(query: Query) {
     /**
      * **/
     fun synthesizeProperty(
-        pos: Examples,
-        negMust: Examples,
-        negMay: Examples,
-        lams: Lambdas,
-        phiList: List<U?>,
+        posi: List<Example>,
+        negMusti: Examples,
+        negMayi: Examples,
+        lamFunctionsi: Lambdas,
+        phiListi: List<U?>,
         phiInit: U?,
         mostPrecise: Boolean,
-        updatePsi: Boolean
-    ): Pair<Pair<Examples, Examples>, Triple<U, Lambdas, U>> {
-        return TODO()
+    updatePsi: Boolean
+    ): Pair<Pair<U, Examples>, Triple<Examples, Examples,Lambdas>> {
+var pos =posi
+        var negMust = negMusti
+        var negMay = negMayi
+        var lamFunctions = lamFunctionsi
+        var phiList = phiListi
+        var phiE = phiInit
+        var phiLastSound:U?= null
+        var negDelta = listOf<Example>()
+        var phiSound  = listOf<U?>()
+        while(true){
+           var (ePos, lam , timeout) = checkSoundness(phiE as U,lamFunctions)
+            if(ePos!=null){
+                pos = pos.plus(ePos)
+                lamFunctions =lamFunctions.plus(lam as Lambdas)
+                var (phi, lam ) = synthesize(pos, negMust, negMay, lamFunctions)
+                if(phi == null && ((negMay.size==1 &&phiLastSound!=null)||this.discardAll)){
+                    phi = phiLastSound
+                    negDelta= negDelta.plus(negMay)
+                    negMay = listOf()
+                    lam = mapOf()
+                }
+                else if (phi!=null){
+                    var(left, right) = maxSynthesize(pos, negMust, negMay, lamFunctions, phiLastSound)
+                    var (negMay, delta)=left
+                    var (phi, lam)= right
+                    negDelta = negDelta.plus(delta)
+                    /**skipping line about minimizing terms*/
+                }
+                phiE = phi
+                lamFunctions = lamFunctions.plus(lam as Lambdas)
+                            }else{
+                                phiLastSound = phiE
+                if(updatePsi&&negMay.size>0){
+                    phiList= phiList+ listOf(phiE)
+                }
+                var (eNeg, phi, lam ) = checkPrecision(phiE, phiList as List<U>, pos,negMust, negMay, lamFunctions)
+                if(eNeg!=null){
+                    phiE = phi
+                    negMay = negMay.plus(eNeg)
+                    lamFunctions =lam as Lambdas
+                }else{
+                    //skipping line about filtering neg delta
+                    return Pair(Pair(phiE,pos), Triple(negMust.plus(negMay), negDelta,lamFunctions))
+                }
+                /**skipping may move/ hyperparameters*/
+
+                            }
+            /**skipping a bunch of stuff about filtering negatives*/
+        }
+
+    return TODO()
     }
 
-    fun synthesizeAllProperties(): Pair<List<U>, List<U?>> {
-        val phiList = listOf<U?>()
-        val funList = listOf<U?>()
-        val pos = listOf<Example>()
-        val negMay = listOf<Example>()
-        val lamFunctions = listOf<U?>()
-        while (true) {
-            /**here we need to **/
-        }
-        return TODO()
+        fun synthesizeAllProperties():Pair<List<U?>,List<U?>> {
+            var phiList = listOf<U?>()
+            var funList = listOf<U?>()
+            var pos = listOf<Example>()
+            var negMay = listOf<Example>()
+            var negMust = listOf<Example>()
+            var lamFunctions = mapOf<String,String>()
+            var phiInit:U?
+            var phi: U?
+            var lam:Lambdas
+            while(true) {
+                if(negMay.size>0){
+                    val (tmpl, tmpr) =
+                        maxSynthesize(pos, listOf<Example>(),negMay, lamFunctions,this.phiTruth)
+                    negMay = tmpl.first
+                    phiInit = tmpr.first
+                    lam= tmpr.second
+                    lamFunctions = lamFunctions.plus(lam)
+                }else{
+                    phiInit = this.phiTruth
+                }
+                var(tmpl, tmpr) = synthesizeProperty(pos, listOf<Example>(), negMay,lamFunctions, phiList,phiInit,true, true)
+                phi = tmpl.first
+                pos = tmpl.second
+                negMust = tmpr.first
+                negMay = tmpr.second
+                lam = tmpr.third
+                lamFunctions=lam
+                if(negMust.size==0){
+                    return Pair(phiList,funList)
+                    /**there's a big thing in here about checking the minimization  */
+                }
+                var (tml, tmr) = synthesizeProperty(pos, negMust,listOf<Example>(), lamFunctions, listOf<U?>(),phiInit,true, false)
+                phi = tml.first
+                pos = tml.second
+                negMust = tmr.first
+                negMay = tmr.second
+                lam = tmr.third
+                lamFunctions=lamFunctions.plus(lam)
+                phiList= phiList.plus(phi)
+                var funs= listOf<Lambdas>()
+                /**not entirely sure what this part does or how to translate this to
+                 * kotlin, especially with our interpretation of u */
+                for(f in lamFunctions)
+                    if(phi.to(f)!=null)
+                        funs.plus(f)
+                /**here we need to **/
+                this.outerIterator = this.outerIterator+ 1
+                this.innerIterator = 0
+            }
+            return TODO()
     }
 
     /**
@@ -163,7 +259,7 @@ class PropertySynthesizer(query: Query) {
      * looks useful for analysis.
      *
      * */
-    fun run(): Triple<List<U>, List<U?>, List<Float>?> {
+    fun run(): Triple<List<U?>, List<U?>, List<Float>?> {
         /**skipping logging code insert*/
         val (phiList, funList) = synthesizeAllProperties()
         val statistics = null
