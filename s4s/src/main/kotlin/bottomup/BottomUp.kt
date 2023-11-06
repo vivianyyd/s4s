@@ -65,19 +65,13 @@ class BottomUp(private val query: Query) {
                 ).forEach { }
             }
             Cmp.values().forEach { cmp ->
-                // The left child can only be length. This is fine if we have division
-                for (rightChildSize in 1..(possSize - 2)) {
-                    val rightCandidates = typeSizeToExpr[Pair(Int::class, rightChildSize)] ?: continue
-                    for (candidateArgs in product(lenNodes, rightCandidates)) {
-                        if (candidateArgs.first() == candidateArgs.last()) continue
-                        val node = UCmp(cmp, candidateArgs.first().first as ULen, candidateArgs.last().first as UInt)
-                        val evaluated = node.evaluateFromCachedChildren(query, candidateArgs.map { it.second })
-                        if (evaluated in valuesToExpr) continue
-                        valuesToExpr[evaluated] = node
-                        typeSizeToExpr.addMulti(Pair(Boolean::class, possSize), Pair(node, evaluated))
-                        yield(Pair(node, evaluated))
-                    }
-                }
+                generateAndStore(
+                    2,
+                    makeNode = { args -> UCmp(cmp, args.first().first as UInt, args.last().first as UInt) },
+                    childType = Int::class,
+                    returnType = Boolean::class,
+                    size = possSize
+                ).forEach { yield(it) }
             }
             BoolOp.values().forEach { op ->
                 when (op) {

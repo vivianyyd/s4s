@@ -7,13 +7,15 @@ fun bottomUpTests() {
     BottomUp(addQuery).enumerate(6)
     println("Running bottom-up for MutableList.addAll")
     BottomUp(addAllQuery).enumerate(6)
+    println("Running bottom-up for duplicate")
+    BottomUp(dupQuery).enumerate(6)
     // TODO add a test for duplicating each element
 }
 
 fun main(args: Array<String>) {
-//    bottomUpTests()
-    val ig = InputFactory(addQuery)
-    println(ig.synthInput(addQuery.posExamples, addQuery.negExamples, listOf(), mapOf()))
+    bottomUpTests()
+//    val ig = InputFactory(addQuery)
+//    println(ig.synthInput(addQuery.posExamples, addQuery.negExamples, listOf(), mapOf()))
 
 //    val input = generateSequence(::readLine).joinToString("\n")
 //    val jsonElement = Json.parseToJsonElement(input)
@@ -68,6 +70,24 @@ val addAllQuery by lazy {
     negExamplesAddAll.add(Example(listOf(mutableListOf(1, 2), listOf(3)), listOf(1, 2, 3, 4)))
     negExamplesAddAll.add(Example(listOf(mutableListOf(1, 2), listOf(3)), listOf(1, 2)))
     negExamplesAddAll.add(Example(listOf(mutableListOf(1, 2), listOf()), listOf(1, 2, 3)))
+
+    Query(::addAll, t, posExamplesAddAll, negExamplesAddAll, ListImpl)
+}
+
+fun dup(l: List<Int>): List<Int> = l.flatMap { listOf(it, it) }
+
+val dupQuery by lazy {
+    val t = Type(listOf(List::class), List::class)
+
+    val posExamplesAddAll = mutableListOf<Example>()
+    posExamplesAddAll.add(Example(listOf(listOf(1, 2, 3)), listOf(1, 1, 2, 2, 3, 3)))
+    posExamplesAddAll.add(Example(listOf(listOf(1, 2)), listOf(1, 1, 2, 2)))
+    posExamplesAddAll.add(Example(listOf(listOf<Int>()), listOf<Int>()))
+
+    val negExamplesAddAll = mutableListOf<Example>()
+    negExamplesAddAll.add(Example(listOf(listOf<Int>()), listOf(1)))
+    negExamplesAddAll.add(Example(listOf(listOf(1, 2)), listOf(1, 2)))
+//    negExamplesAddAll.add(Example(listOf(listOf(1, 2)), listOf(1, 2, 3)))
 
     Query(::addAll, t, posExamplesAddAll, negExamplesAddAll, ListImpl)
 }
