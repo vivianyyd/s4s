@@ -17,6 +17,8 @@ class PropertySynthesizer(query: Query) {
     val phiTruth = null//"out = true" // Synthesized property. Might delete
     var outerIterator = 0
     var innerIterator = 0
+    val discardAll = false
+
     private fun callSketch(sketchInput: String): Pair<String?, Int> {
         // TODO Write temp file containing [code] as the sketch input
         try {
@@ -136,15 +138,65 @@ class PropertySynthesizer(query: Query) {
     /**
      * **/
     fun synthesizeProperty(
-        pos: Examples,
-        negMust: Examples,
-        negMay: Examples,
-        lams: Lambdas,
-        phiList: List<U?>,
+        posi: List<Example>,
+        negMusti: Examples,
+        negMayi: Examples,
+        lamFunctionsi: Lambdas,
+        phiListi: List<U?>,
         phiInit: U?,
         mostPrecise: Boolean,
     updatePsi: Boolean
     ): Pair<Pair<U, Examples>, Triple<Examples, Examples,Lambdas>> {
+var pos =posi
+        var negMust = negMusti
+        var negMay = negMayi
+        var lamFunctions = lamFunctionsi
+        var phiList = phiListi
+        var phiE = phiInit
+        var phiLastSound:U?= null
+        var negDelta = listOf<Example>()
+        var phiSound  = listOf<U?>()
+        while(true){
+           var (ePos, lam , timeout) = checkSoundness(phiE as U,lamFunctions)
+            if(ePos!=null){
+                pos = pos.plus(ePos)
+                lamFunctions =lamFunctions.plus(lam as Lambdas)
+                var (phi, lam ) = synthesize(pos, negMust, negMay, lamFunctions)
+                if(phi == null && ((negMay.size==1 &&phiLastSound!=null)||this.discardAll)){
+                    phi = phiLastSound
+                    negDelta= negDelta.plus(negMay)
+                    negMay = listOf()
+                    lam = mapOf()
+                }
+                else if (phi!=null){
+                    var(left, right) = maxSynthesize(pos, negMust, negMay, lamFunctions, phiLastSound)
+                    var (negMay, delta)=left
+                    var (phi, lam)= right
+                    negDelta = negDelta.plus(delta)
+                    /**skipping line about minimizing terms*/
+                }
+                phiE = phi
+                lamFunctions = lamFunctions.plus(lam as Lambdas)
+                            }else{
+                                phiLastSound = phiE
+                if(updatePsi&&negMay.size>0){
+                    phiList= phiList+ listOf(phiE)
+                }
+                var (eNeg, phi, lam ) = checkPrecision(phiE, phiList as List<U>, pos,negMust, negMay, lamFunctions)
+                if(eNeg!=null){
+                    phiE = phi
+                    negMay = negMay.plus(eNeg)
+                    lamFunctions =lam as Lambdas
+                }else{
+                    //skipping line about filtering neg delta
+                    return Pair(Pair(phiE,pos), Triple(negMust.plus(negMay), negDelta,lamFunctions))
+                }
+                /**skipping may move/ hyperparameters*/
+
+                            }
+            /**skipping a bunch of stuff about filtering negatives*/
+        }
+
     return TODO()
     }
 
