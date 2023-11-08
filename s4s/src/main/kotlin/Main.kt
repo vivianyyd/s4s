@@ -13,9 +13,9 @@ fun bottomUpTests() {
 }
 
 fun main(args: Array<String>) {
-    bottomUpTests()
-//    val ig = InputFactory(addQuery)
-//    println(ig.synthInput(addQuery.posExamples, addQuery.negExamples, listOf(), mapOf()))
+//    bottomUpTests()
+    val ig = InputFactory(addQuery)
+    println(ig.synthInput(addQuery.posExamples, addQuery.negExamples, listOf(), mapOf()))
 
 //    val input = generateSequence(::readLine).joinToString("\n")
 //    val jsonElement = Json.parseToJsonElement(input)
