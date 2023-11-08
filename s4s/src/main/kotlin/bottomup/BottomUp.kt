@@ -20,13 +20,14 @@ class BottomUp(private val query: Query) {
     private val typeSizeToExpr: MutableMap<TypeSize, MutableList<Pair<U, EvaluationResult>>> = mutableMapOf()
     private val valuesToExpr: MutableMap<EvaluationResult, U> = mutableMapOf()
 
-    fun enumerate(bound: Int = 8) {
+    fun enumerate(bound: Int = 8): UBoolean? {
         enumerateWithValues(bound).forEach { (node, evalResult) ->
             if (query.posExamples.all { (evalResult[it] as BooleanValue).value } &&
                 query.negExamples.all { !(evalResult[it] as BooleanValue).value }) {
-                println("Found $node")
+                return node
             }
         }
+        return null
     }
 
     /** Just like [enumerate], but also yields the result of evaluating the yielded node in all environments as
@@ -71,7 +72,7 @@ class BottomUp(private val query: Query) {
                     childType = Int::class,
                     returnType = Boolean::class,
                     size = possSize
-                ).forEach { yield(it) }
+                ).forEach { yield(it as Pair<UBoolean, EvaluationResult>) }
             }
             BoolOp.values().forEach { op ->
                 when (op) {
@@ -81,14 +82,14 @@ class BottomUp(private val query: Query) {
                         Boolean::class,
                         Boolean::class,
                         possSize
-                    ).forEach { yield(it) }
+                    ).forEach { yield(it as Pair<UBoolean, EvaluationResult>) }
                     BoolOp.NOT -> generateAndStore(
                         1,
                         makeNode = { args -> UBop(op, args.first().first as UBoolean) },
                         Boolean::class,
                         Boolean::class,
                         possSize
-                    ).forEach { yield(it) }
+                    ).forEach { yield(it as Pair<UBoolean, EvaluationResult>) }
                 }
             }
         }

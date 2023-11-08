@@ -9,7 +9,9 @@ interface U {
     fun evaluateFromCachedChildren(query: Query, cachedChildren: List<EvaluationResult>): EvaluationResult
 }
 
-interface UBoolean : U
+interface UBoolean : U {
+    fun evaluate(example: Example, impl: UPrimImpl): Boolean
+}
 
 data class UCmp(val cmp: Cmp, val left: UInt, val right: UInt) : UBoolean {
     override fun evaluateFromCachedChildren(
@@ -26,6 +28,9 @@ data class UCmp(val cmp: Cmp, val left: UInt, val right: UInt) : UBoolean {
             )
         }
     }
+
+    override fun evaluate(example: Example, impl: UPrimImpl) =
+        cmp.evaluate(left.evaluate(example, impl), right.evaluate(example, impl))
 
     override fun toString() = "$left $cmp $right"
 }
@@ -60,13 +65,18 @@ data class UBop(val op: BoolOp, val left: UBoolean, val right: UBoolean? = null)
         }
     }
 
+    override fun evaluate(example: Example, impl: UPrimImpl) =
+        op.evaluate(left.evaluate(example, impl), right?.evaluate(example, impl))
+
     override fun toString() = when (op) {
         BoolOp.AND, BoolOp.OR -> "$left $op $right"
         BoolOp.NOT -> "$op $left"
     }
 }
 
-interface UInt : U
+interface UInt : U {
+    fun evaluate(example: Example, impl: UPrimImpl): Int
+}
 
 data class ULiteral(val value: Int) : UInt {
     override fun evaluateFromCachedChildren(
@@ -76,6 +86,8 @@ data class ULiteral(val value: Int) : UInt {
         assert(cachedChildren.isEmpty())
         return query.examples.associateWith { IntValue(value) }
     }
+
+    override fun evaluate(example: Example, impl: UPrimImpl) = value
 
     override fun toString() = "$value"
 }
@@ -90,6 +102,9 @@ data class ULen(val parameter: Int) : UInt {
             IntValue(query.lens[element]!!)
         }
     }
+
+    override fun evaluate(example: Example, impl: UPrimImpl) =
+        impl.len(if (parameter == -1) example.output else example.inputs[parameter])
 
     override fun evaluateFromCachedChildren(
         query: Query,
@@ -118,11 +133,15 @@ data class UOp(val op: IntOp, val left: UInt, val right: UInt) : UInt {
         }
     }
 
+    override fun evaluate(example: Example, impl: UPrimImpl) =
+        op.evaluate(left.evaluate(example, impl), right.evaluate(example, impl))
+
     override fun toString() = "$left $op $right"
 }
 
 enum class Cmp(val commutative: Boolean = false, val evaluate: (Int, Int) -> Boolean, val str: String) {
-    EQ(true,
+    EQ(
+        true,
         { x, y -> x == y }, "="
     ),
     LT(evaluate = { x, y -> x < y }, str = "<"),
