@@ -13,9 +13,9 @@ fun bottomUpTests() {
 }
 
 fun main(args: Array<String>) {
-    bottomUpTests()
-//    val ig = InputFactory(addQuery)
-//    println(ig.synthInput(addQuery.posExamples, addQuery.negExamples, listOf(), mapOf()))
+//    bottomUpTests()
+    val ig = InputFactory(addQuery)
+    println(ig.synthInput(addQuery.posExamples, addQuery.negExamples, listOf(), mapOf()))
 
 //    val input = generateSequence(::readLine).joinToString("\n")
 //    val jsonElement = Json.parseToJsonElement(input)
@@ -76,7 +76,7 @@ val dupQuery by lazy {
     val t = Type(listOf(List::class), List::class)
 
     val posExamplesAddAll = mutableListOf<Example>()
-    posExamplesAddAll.add(Example(listOf(listOf(1, 2, 3)), listOf(1, 1, 2, 2, 3, 3)))
+    posExamplesAddAll.add(Example(listOf(listOf(1, 2)), listOf(1, 1, 2, 2)))
     posExamplesAddAll.add(Example(listOf(listOf<Int>()), listOf<Int>()))
 
     val negExamplesAddAll = mutableListOf<Example>()
