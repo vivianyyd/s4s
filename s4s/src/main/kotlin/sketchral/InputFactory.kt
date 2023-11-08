@@ -10,42 +10,36 @@ class InputFactory(val query: Query) {
     private val numInputs = query.type.inputs.size
 
     /** Here, params correspond to indices: inputs at 0..n-1, output at n */
-    private val paramToSketchDepthInt: List<Int>
-    private val paramToSketchTypeStr: List<String>
+    private val paramToSketchType: List<String>
 
-    private val argToSketchVal = mutableMapOf<Any, String>()
+    private val argToConstructorCall = mutableMapOf<Any, String>()
+    private val argToVVal = mutableMapOf<Any, Int>()
+    private val typeToArgs = mutableMapOf<String, MutableSet<Any>>()
 
     init {
         // Build up map of dummy types for params
         var i = 0
         val kotlinToInt = (query.type.inputs + listOf(query.type.output)).toSet().associateWith { i++; i }
-        paramToSketchDepthInt = (0..numInputs).map {
+        paramToSketchType = (0..numInputs).map {
             if (it == numInputs)
-                kotlinToInt[query.type.output]!!
+                "T${kotlinToInt[query.type.output]!!}"
             else
-                kotlinToInt[query.type.inputs[it]]!!
+                "T${kotlinToInt[query.type.inputs[it]]!!}"
         }
-        paramToSketchTypeStr = paramToSketchDepthInt.map { intToSketchType(it) }
 
-        // Build up map of dummy values for examples
-        var j = -1
+        // Build up map of constructors of dummy values for examples
+        var j = 0
         query.examples.forEach { example ->
-            val argToSketchValMini = paramToSketchDepthInt.withIndex().associate { (i, sketchInt) ->
-                val sk = StringBuilder()
-                repeat(sketchInt) { sk.append("{") }
-                sk.append(++j)
-                repeat(sketchInt) { sk.append("}") }
+            val argToConstructorCallMini = paramToSketchType.withIndex().associate { (i, ty) ->
                 val arg = if (i == numInputs) example.output else example.inputs[i]
-                Pair(arg, sk.toString())
-            }
-            argToSketchVal.putAll(argToSketchValMini)
-        }
-    }
 
-    private fun intToSketchType(depth: Int): String {
-        val ty = StringBuilder("int")
-        repeat(depth) { ty.append("[1]") }
-        return ty.toString()
+                if (ty in typeToArgs) typeToArgs[ty]!!.add(arg) else typeToArgs[ty] = mutableSetOf(arg)
+
+                argToVVal[arg] = j
+                Pair(arg, "new $ty(v=${j++})")
+            }
+            argToConstructorCall.putAll(argToConstructorCallMini)
+        }
     }
 
     private fun lenDefinedForParam(param: Int) =
@@ -53,15 +47,15 @@ class InputFactory(val query: Query) {
 
     private fun paramToName(param: Int) = if (param == numInputs) "o" else "x$param"
 
-    val argsDefn = (0..numInputs).joinToString(separator = ", ") {
-        "${paramToSketchTypeStr[it]} ${paramToName(it)}"
+    private val argsDefn = (0..numInputs).joinToString(separator = ", ") {
+        "${paramToSketchType[it]} ${paramToName(it)}"
     }
 
-    val argsCall = (0..numInputs).joinToString(separator = ", ") {
+    private val argsCall = (0..numInputs).joinToString(separator = ", ") {
         paramToName(it)
     }
 
-    private fun sketchVals(args: List<Any>) = args.map { argToSketchVal[it] }.joinToString(separator = ", ")
+    private fun sketchVals(args: List<Any>) = args.map { argToConstructorCall[it] }.joinToString(separator = ", ")
 
     /** Gonna keep this til we understand it */
     private fun lamFunctions(lams: Lambdas) = lams.values.joinToString(postfix = "\n", separator = "\n")
@@ -87,15 +81,12 @@ class InputFactory(val query: Query) {
         val lines = mutableListOf<String>()
         lines.add("\tboolean out;")
 
-        // Partial definition of length functions
-        (0..numInputs).filter { lenDefinedForParam(it) }.forEach { paramIndex ->
-            val lenFn = "length${paramToSketchDepthInt[paramIndex]}"
-            val actualLen = if (paramIndex == numInputs) query.lens[ex.output] else query.lens[ex.inputs[paramIndex]]
-            val arg = argToSketchVal[if (paramIndex == numInputs) ex.output else ex.inputs[paramIndex]]
-            lines.add("assume $lenFn($arg) == $actualLen;")
-        }
+        // Declare and define values
+        lines.addAll(ex.args.mapIndexed { i, arg ->
+            "${paramToSketchType[i]} ${paramToName(i)} = ${argToConstructorCall[arg]};"
+        })
 
-        lines.add("property(${sketchVals(ex.args)}, out);")
+        lines.add("property($argsCall, out);")
         lines.add("assert ${if (negative) "!" else ""}out;")
         return lines.joinToString(separator = "\n\t")
     }
@@ -119,7 +110,7 @@ class InputFactory(val query: Query) {
     private fun propertyCode(maxsat: Boolean = false): String {
         fun propertyGenCode(n: Int) = (0 until n).joinToString(separator = " || ") { "atom_$it" }
 
-        val atomGen = "U_gen(${argsCall})"  // TODO It really feels like argCall should include output
+        val atomGen = "U_gen(${argsCall})"
         val sk = StringBuilder()
 
         // Emit generator for property
@@ -149,19 +140,34 @@ class InputFactory(val query: Query) {
         return sk.toString()
     }
 
-    val declareLength by lazy {
-        val sk = mutableListOf<String>()
+    private val setup by lazy { // TODO add type decls
+        val sk = StringBuilder()
+        val td = mutableListOf<String>()
+        // Declare types
+        paramToSketchType.toSet().forEach {
+            td.add("struct $it { int v; }")
+        }
+        sk.append(td.joinToString(separator = "\n", postfix = "\n"))
+
+        // Declare length functions
         (0..numInputs).filter {
             lenDefinedForParam(it)
-        }.map { paramToSketchDepthInt[it] }.toSet().forEach {
-            sk.add("int length$it(${intToSketchType(it)} x);")
+        }.map { paramToSketchType[it] }.toSet().forEach {ty ->
+            val ld = mutableListOf("int length$ty($ty x) {")
+            typeToArgs[ty]!!.forEach { arg ->
+                ld.add("if (x.v == ${argToVVal[arg]}) { return ${query.lens[arg]}; }")
+            }
+            ld.add("return -1;")  // bottom value if no matches
+            sk.append(ld.joinToString(separator="\n\t", postfix="\n}\n"))
         }
-        sk.joinToString(separator = "\n", postfix = "\n")
+
+        sk.toString()
     }
 
     fun synthInput(pos: Examples, negMust: Examples, negMay: Examples, lams: Lambdas): String {
-        val sk = StringBuilder(uGrammar)
-        sk.append(declareLength)
+        val sk = StringBuilder()
+        sk.append(setup)
+        sk.append(uGrammar)
         sk.append(lamFunctions(lams))
         sk.append(posExamples(pos))
         sk.append(negExamplesSynth(negMust, negMay))
@@ -221,7 +227,7 @@ class InputFactory(val query: Query) {
         eGen.add("if (t == 0) { return 0; }")
         eGen.add("if (t == 1) { return 1; }")
         (0..numInputs).filter { lenDefinedForParam(it) }.forEachIndexed { i, param ->
-            eGen.add("if (t == ${i + 2}) { return length${paramToSketchDepthInt[param]}(${if (param == numInputs) "o" else "x$param"}); }")
+            eGen.add("if (t == ${i + 2}) { return length${paramToSketchType[param]}(${if (param == numInputs) "o" else "x$param"}); }")
         }
         eGen.add("int e1 = E_gen($argsCall);")
         eGen.add("int e2 = E_gen($argsCall);")
