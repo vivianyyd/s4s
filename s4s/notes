@@ -1,0 +1,53 @@
+Just synthInput fed to Sketch
+
+addAll
+    val posExamplesAddAll = mutableListOf<Example>()
+    posExamplesAddAll.add(Example(listOf(mutableListOf(1, 2, 3), listOf(5)), listOf(1, 2, 3, 5)))
+    posExamplesAddAll.add(Example(listOf(mutableListOf(1, 2), listOf()), listOf(1, 2)))
+    posExamplesAddAll.add(Example(listOf(mutableListOf(), listOf(3)), listOf(3)))
+    val negExamplesAddAll = mutableListOf<Example>()
+    negExamplesAddAll.add(Example(listOf(mutableListOf(1, 2), listOf(3)), listOf(1, 2, 3, 4)))
+we get absolute garbage with squared terms, definitely not sound
+but if we add
+    posExamplesAddAll.add(Example(listOf(mutableListOf(1, 2, 3), listOf(5, 6, 7, 8)), listOf(1, 2, 3, 5, 6, 7, 8)))
+we get
+   0 <= ((((b + a) - c) * c) - 0)
+   <=>
+   c <= b + a
+   sound, but not precise
+
+
+add
+    val posExamplesAdd = mutableListOf<Example>()
+    posExamplesAdd.add(Example(listOf(mutableListOf(1, 2), 3), listOf(1, 2, 3)))
+    posExamplesAdd.add(Example(listOf(mutableListOf<Int>(), 3), listOf(3)))
+
+    val negExamplesAdd = mutableListOf<Example>()
+    negExamplesAdd.add(Example(listOf(mutableListOf(1, 2), 3), listOf(1, 2, 3, 4)))
+we get
+    (o - (x - 0)) <= 1
+    <=>
+    o <= x + 1
+    sound, but not precise
+
+
+duplicate
+    val posExamplesDup = mutableListOf<Example>()
+    posExamplesDup.add(Example(listOf(listOf(1, 2)), listOf(1, 1, 2, 2)))
+    posExamplesDup.add(Example(listOf(listOf<Int>()), listOf<Int>()))
+    val negExamplesDup = mutableListOf<Example>()
+    negExamplesDup.add(Example(listOf(listOf(1, 2)), listOf(1, 2)))
+we get
+    (o - ((x0 + 1) - o)) != 1
+    <=>
+    (o + o - x0) != 2
+not sound: incorrect if x0 is length 1. Try again, and add :
+    posExamplesDup.add(Example(listOf(listOf(1)), listOf(1, 1)))
+we get
+    ((0 - (2 * (1 - x0))) - 0) != o
+    (-2 + 2 * x0) != o
+    o is not twice the length of x0 minus 2. True, since o is twice the length of x0.
+sound, but not precise.
+
+
+these examples support our claim that positive examples improve soundness
