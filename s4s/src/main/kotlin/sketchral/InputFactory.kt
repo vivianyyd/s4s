@@ -55,8 +55,6 @@ class InputFactory(val query: Query) {
         paramToName(it)
     }
 
-    private fun sketchVals(args: List<Any>) = args.map { argToConstructorCall[it] }.joinToString(separator = ", ")
-
     /** Gonna keep this til we understand it */
     private fun lamFunctions(lams: Lambdas) = lams.values.joinToString(postfix = "\n", separator = "\n")
 
@@ -110,17 +108,19 @@ class InputFactory(val query: Query) {
     private fun propertyCode(maxsat: Boolean = false): String {
         fun propertyGenCode(n: Int) = (0 until n).joinToString(separator = " || ") { "atom_$it" }
 
-        val atomGen = "U_gen(${argsCall})"
+        val atomGen = "U_gen(${argsCall}, n)"
         val sk = StringBuilder()
 
         // Emit generator for property
         sk.append("generator boolean property_gen(${argsDefn}) {\n")
         sk.append("\tif (??) { return false; }\n")
+        sk.append("\tint n = ??;\n")
         if (minimizeTerms && !maxsat) {
             sk.append("\tint t = ??;\n")
             for (i in 0 until numAtom) {
                 val propertyGen = propertyGenCode(i + 1)
                 sk.append("\tboolean atom_$i = ${atomGen};\n")
+                sk.append("\tminimize(n);\n")
                 sk.append("\tif (t == ${i + 1}) { return ${propertyGen}; }\n")
             }
             sk.append("\tminimize(t);\n")
@@ -129,6 +129,7 @@ class InputFactory(val query: Query) {
                 sk.append("\tboolean atom_${i} = ${atomGen};\n")
             }
             val propertyGen = propertyGenCode(numAtom)
+            sk.append("\tminimize(n);\n")
             sk.append("\treturn ${propertyGen};\n")
         }
         sk.append("}\n")
@@ -152,13 +153,13 @@ class InputFactory(val query: Query) {
         // Declare length functions
         (0..numInputs).filter {
             lenDefinedForParam(it)
-        }.map { paramToSketchType[it] }.toSet().forEach {ty ->
+        }.map { paramToSketchType[it] }.toSet().forEach { ty ->
             val ld = mutableListOf("int length$ty($ty x) {")
             typeToArgs[ty]!!.forEach { arg ->
                 ld.add("if (x.v == ${argToVVal[arg]}) { return ${query.lens[arg]}; }")
             }
-            ld.add("return -1;")  // bottom value if no matches
-            sk.append(ld.joinToString(separator="\n\t", postfix="\n}\n"))
+            ld.add("assert false;")
+            sk.append(ld.joinToString(separator = "\n\t", postfix = "\n}\n"))
         }
 
         sk.toString()
@@ -203,43 +204,55 @@ class InputFactory(val query: Query) {
         val sb = StringBuilder()
 
         // The toplevel predicate non-terminal
-        val uGen = mutableListOf("generator boolean U_gen($argsDefn) {")
-        uGen.add("int e1 = E_gen($argsCall);")
-        uGen.add("int e2 = E_gen($argsCall);")
-        uGen.add("return compare(e1, e2);")
+        val uGen = mutableListOf("generator boolean U_gen($argsDefn, int n) {")
+        uGen.add("if (n > 0) {")
+        uGen.add("\tint e1 = E_gen($argsCall, n - 1);")
+        uGen.add("\tint e2 = E_gen($argsCall, n - 1);")
+        uGen.add("\treturn compare(e1, e2, n - 1);")
+        uGen.add("}")
+        uGen.add("assert false;")
         sb.append(uGen.joinToString(separator = "\n\t"))
         sb.append("\n}\n")
 
-        val compareGen = mutableListOf("generator boolean compare(int x, int y) {")
-        compareGen.add("int t = ??;")
-        compareGen.add("if (t == 0) { return x == y; }")
-        compareGen.add("if (t == 1) { return x <= y; }")
-        compareGen.add("if (t == 2) { return x >= y; }")
-        compareGen.add("if (t == 3) { return x < y; }")
-        compareGen.add("if (t == 4) { return x > y; }")
-        compareGen.add("return x != y;")
+        val compareGen = mutableListOf("generator boolean compare(int x, int y, int n) {")
+        compareGen.add("if (n > 0) {")
+        compareGen.add("\tint t = ??;")
+        compareGen.add("\tif (t == 0) { return x == y; }")
+        compareGen.add("\tif (t == 1) { return x <= y; }")
+        compareGen.add("\tif (t == 2) { return x >= y; }")
+        compareGen.add("\tif (t == 3) { return x < y; }")
+        compareGen.add("\tif (t == 4) { return x > y; }")
+        compareGen.add("\treturn x != y;")
+        compareGen.add("}")
+        compareGen.add("assert false;")
         sb.append(compareGen.joinToString(separator = "\n\t"))
         sb.append("\n}\n")
 
         // Integer expressions
-        val eGen = mutableListOf("generator int E_gen($argsDefn) {")
-        eGen.add("int t = ??;")
-        eGen.add("if (t == 0) { return 0; }")
-        eGen.add("if (t == 1) { return 1; }")
+        val eGen = mutableListOf("generator int E_gen($argsDefn, int n) {")
+        eGen.add("if (n > 0) {")
+        eGen.add("\tint t = ??;")
+        eGen.add("\tif (t == 0) { return 0; }")
+        eGen.add("\tif (t == 1) { return 1; }")
         (0..numInputs).filter { lenDefinedForParam(it) }.forEachIndexed { i, param ->
-            eGen.add("if (t == ${i + 2}) { return length${paramToSketchType[param]}(${if (param == numInputs) "o" else "x$param"}); }")
+            eGen.add("\tif (t == ${i + 2}) { return length${paramToSketchType[param]}(${if (param == numInputs) "o" else "x$param"}); }")
         }
-        eGen.add("int e1 = E_gen($argsCall);")
-        eGen.add("int e2 = E_gen($argsCall);")
-        eGen.add("return op(e1, e2);")
+        eGen.add("\tint e1 = E_gen($argsCall, n - 1);")
+        eGen.add("\tint e2 = E_gen($argsCall, n - 1);")
+        eGen.add("\treturn op(e1, e2, n - 1);")
+        eGen.add("}")
+        eGen.add("assert false;")
         sb.append(eGen.joinToString(separator = "\n\t"))
         sb.append("\n}\n")
 
-        val opGen = mutableListOf("generator int op(int x, int y) {")
-        opGen.add("int t = ??;")
-        opGen.add("if (t == 0) { return x + y; }")
-        opGen.add("if (t == 1) { return x * y; }")
-        opGen.add("return x - y;")
+        val opGen = mutableListOf("generator int op(int x, int y, int n) {")
+        opGen.add("if (n > 0) {")
+        opGen.add("\tint t = ??;")
+        opGen.add("\tif (t == 0) { return x + y; }")
+        opGen.add("\tif (t == 1) { return x * y; }")
+        opGen.add("\treturn x - y;")
+        opGen.add("}")
+        opGen.add("assert false;")
         sb.append(opGen.joinToString(separator = "\n\t"))
         sb.append("\n}\n")
 
