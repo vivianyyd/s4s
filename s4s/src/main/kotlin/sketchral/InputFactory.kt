@@ -5,63 +5,25 @@ import util.Query
 import util.U
 
 class InputFactory(val query: Query) {
-    private val numAtom = 1
+    private val numAtom = 1  // TODO add flag later
     private val minimizeTerms = false  // TODO add commandline flag later
     private val numInputs = query.type.inputs.size
-
-    /** Here, params correspond to indices: inputs at 0..n-1, output at n */
-    private val paramToSketchDepthInt: List<Int>
-    private val paramToSketchTypeStr: List<String>
-
-    private val argToSketchVal = mutableMapOf<Any, String>()
+    private val argToDummy = mutableMapOf<Any, Int>()
+    private val paramsWithLen =
+        (0..numInputs).filter { (if (it == numInputs) -1 else it) !in query.argsWithUndefinedLength }
 
     init {
-        // Build up map of dummy types for params
-        var i = 0
-        val kotlinToInt = (query.type.inputs + listOf(query.type.output)).toSet().associateWith { i++; i }
-        paramToSketchDepthInt = (0..numInputs).map {
-            if (it == numInputs)
-                kotlinToInt[query.type.output]!!
-            else
-                kotlinToInt[query.type.inputs[it]]!!
-        }
-        paramToSketchTypeStr = paramToSketchDepthInt.map { intToSketchType(it) }
-
-        // Build up map of dummy values for examples
-        var j = -1
-        query.examples.forEach { example ->
-            val argToSketchValMini = paramToSketchDepthInt.withIndex().associate { (i, sketchInt) ->
-                val sk = StringBuilder()
-                repeat(sketchInt) { sk.append("{") }
-                sk.append(++j)
-                repeat(sketchInt) { sk.append("}") }
-                val arg = if (i == numInputs) example.output else example.inputs[i]
-                Pair(arg, sk.toString())
-            }
-            argToSketchVal.putAll(argToSketchValMini)
+        // Make dummy values for examples
+        query.examples.flatMap { (it.inputs + listOf(it.output)) }.toSet().forEachIndexed { i, arg ->
+            argToDummy[arg] = i
         }
     }
-
-    private fun intToSketchType(depth: Int): String {
-        val ty = StringBuilder("int")
-        repeat(depth) { ty.append("[1]") }
-        return ty.toString()
-    }
-
-    private fun lenDefinedForParam(param: Int) =
-        (if (param == numInputs) -1 else param) !in query.argsWithUndefinedLength
 
     private fun paramToName(param: Int) = if (param == numInputs) "o" else "x$param"
 
-    val argsDefn = (0..numInputs).joinToString(separator = ", ") {
-        "${paramToSketchTypeStr[it]} ${paramToName(it)}"
-    }
+    private val argsDefn = (0..numInputs).joinToString(separator = ", ") { "int ${paramToName(it)}" }
 
-    val argsCall = (0..numInputs).joinToString(separator = ", ") {
-        paramToName(it)
-    }
-
-    private fun sketchVals(args: List<Any>) = args.map { argToSketchVal[it] }.joinToString(separator = ", ")
+    private val argsCall = (0..numInputs).joinToString(separator = ", ") { paramToName(it) }
 
     /** Gonna keep this til we understand it */
     private fun lamFunctions(lams: Lambdas) = lams.values.joinToString(postfix = "\n", separator = "\n")
@@ -87,15 +49,12 @@ class InputFactory(val query: Query) {
         val lines = mutableListOf<String>()
         lines.add("\tboolean out;")
 
-        // Partial definition of length functions
-        (0..numInputs).filter { lenDefinedForParam(it) }.forEach { paramIndex ->
-            val lenFn = "length${paramToSketchDepthInt[paramIndex]}"
-            val actualLen = if (paramIndex == numInputs) query.lens[ex.output] else query.lens[ex.inputs[paramIndex]]
-            val arg = argToSketchVal[if (paramIndex == numInputs) ex.output else ex.inputs[paramIndex]]
-            lines.add("assume $lenFn($arg) == $actualLen;")
-        }
+        // Declare and define values
+        lines.addAll(ex.args.mapIndexed { i, arg ->
+            "int ${paramToName(i)} = ${argToDummy[arg]};"
+        })
 
-        lines.add("property(${sketchVals(ex.args)}, out);")
+        lines.add("property($argsCall, out);")
         lines.add("assert ${if (negative) "!" else ""}out;")
         return lines.joinToString(separator = "\n\t")
     }
@@ -119,17 +78,19 @@ class InputFactory(val query: Query) {
     private fun propertyCode(maxsat: Boolean = false): String {
         fun propertyGenCode(n: Int) = (0 until n).joinToString(separator = " || ") { "atom_$it" }
 
-        val atomGen = "U_gen(${argsCall})"  // TODO It really feels like argCall should include output
+        val atomGen = "U_gen(${argsCall}, n)"
         val sk = StringBuilder()
 
         // Emit generator for property
         sk.append("generator boolean property_gen(${argsDefn}) {\n")
         sk.append("\tif (??) { return false; }\n")
+        sk.append("\tint n = ??;\n")
         if (minimizeTerms && !maxsat) {
             sk.append("\tint t = ??;\n")
             for (i in 0 until numAtom) {
                 val propertyGen = propertyGenCode(i + 1)
                 sk.append("\tboolean atom_$i = ${atomGen};\n")
+                sk.append("\tminimize(n);\n")
                 sk.append("\tif (t == ${i + 1}) { return ${propertyGen}; }\n")
             }
             sk.append("\tminimize(t);\n")
@@ -138,6 +99,7 @@ class InputFactory(val query: Query) {
                 sk.append("\tboolean atom_${i} = ${atomGen};\n")
             }
             val propertyGen = propertyGenCode(numAtom)
+            sk.append("\tminimize(n);\n")
             sk.append("\treturn ${propertyGen};\n")
         }
         sk.append("}\n")
@@ -149,19 +111,20 @@ class InputFactory(val query: Query) {
         return sk.toString()
     }
 
-    val declareLength by lazy {
-        val sk = mutableListOf<String>()
-        (0..numInputs).filter {
-            lenDefinedForParam(it)
-        }.map { paramToSketchDepthInt[it] }.toSet().forEach {
-            sk.add("int length$it(${intToSketchType(it)} x);")
+    private val setup by lazy {
+        // Declare length function
+        val ld = mutableListOf("int length(int x) {")
+        query.examples.flatMap { it.args.filterIndexed { i, _ -> i in paramsWithLen } }.forEach { arg ->
+            ld.add("if (x == ${argToDummy[arg]}) { return ${query.lens[arg]}; }")
         }
-        sk.joinToString(separator = "\n", postfix = "\n")
+        ld.add("assert false;")
+        ld.joinToString(separator = "\n\t", postfix = "\n}\n")
     }
 
     fun synthInput(pos: Examples, negMust: Examples, negMay: Examples, lams: Lambdas): String {
-        val sk = StringBuilder(uGrammar)
-        sk.append(declareLength)
+        val sk = StringBuilder()
+        sk.append(setup)
+        sk.append(uGrammar)
         sk.append(lamFunctions(lams))
         sk.append(posExamples(pos))
         sk.append(negExamplesSynth(negMust, negMay))
@@ -197,43 +160,55 @@ class InputFactory(val query: Query) {
         val sb = StringBuilder()
 
         // The toplevel predicate non-terminal
-        val uGen = mutableListOf("generator boolean U_gen($argsDefn) {")
-        uGen.add("int e1 = E_gen($argsCall);")
-        uGen.add("int e2 = E_gen($argsCall);")
-        uGen.add("return compare(e1, e2);")
+        val uGen = mutableListOf("generator boolean U_gen($argsDefn, int n) {")
+        uGen.add("if (n > 0) {")
+        uGen.add("\tint e1 = E_gen($argsCall, n - 1);")
+        uGen.add("\tint e2 = E_gen($argsCall, n - 1);")
+        uGen.add("\treturn compare(e1, e2, n - 1);")
+        uGen.add("}")
+        uGen.add("assert false;")
         sb.append(uGen.joinToString(separator = "\n\t"))
         sb.append("\n}\n")
 
-        val compareGen = mutableListOf("generator boolean compare(int x, int y) {")
-        compareGen.add("int t = ??;")
-        compareGen.add("if (t == 0) { return x == y; }")
-        compareGen.add("if (t == 1) { return x <= y; }")
-        compareGen.add("if (t == 2) { return x >= y; }")
-        compareGen.add("if (t == 3) { return x < y; }")
-        compareGen.add("if (t == 4) { return x > y; }")
-        compareGen.add("return x != y;")
+        val compareGen = mutableListOf("generator boolean compare(int x, int y, int n) {")
+        compareGen.add("if (n > 0) {")
+        compareGen.add("\tint t = ??;")
+        compareGen.add("\tif (t == 0) { return x == y; }")
+        compareGen.add("\tif (t == 1) { return x <= y; }")
+        compareGen.add("\tif (t == 2) { return x >= y; }")
+        compareGen.add("\tif (t == 3) { return x < y; }")
+        compareGen.add("\tif (t == 4) { return x > y; }")
+        compareGen.add("\treturn x != y;")
+        compareGen.add("}")
+        compareGen.add("assert false;")
         sb.append(compareGen.joinToString(separator = "\n\t"))
         sb.append("\n}\n")
 
         // Integer expressions
-        val eGen = mutableListOf("generator int E_gen($argsDefn) {")
-        eGen.add("int t = ??;")
-        eGen.add("if (t == 0) { return 0; }")
-        eGen.add("if (t == 1) { return 1; }")
-        (0..numInputs).filter { lenDefinedForParam(it) }.forEachIndexed { i, param ->
-            eGen.add("if (t == ${i + 2}) { return length${paramToSketchDepthInt[param]}(${if (param == numInputs) "o" else "x$param"}); }")
+        val eGen = mutableListOf("generator int E_gen($argsDefn, int n) {")
+        eGen.add("if (n > 0) {")
+        eGen.add("\tint t = ??;")
+        eGen.add("\tif (t == 0) { return 0; }")
+        eGen.add("\tif (t == 1) { return 1; }")
+        paramsWithLen.forEachIndexed { tOffset, param ->
+            eGen.add("\tif (t == ${tOffset + 2}) { return length(${if (param == numInputs) "o" else "x$param"}); }")
         }
-        eGen.add("int e1 = E_gen($argsCall);")
-        eGen.add("int e2 = E_gen($argsCall);")
-        eGen.add("return op(e1, e2);")
+        eGen.add("\tint e1 = E_gen($argsCall, n - 1);")
+        eGen.add("\tint e2 = E_gen($argsCall, n - 1);")
+        eGen.add("\treturn op(e1, e2, n - 1);")
+        eGen.add("}")
+        eGen.add("assert false;")
         sb.append(eGen.joinToString(separator = "\n\t"))
         sb.append("\n}\n")
 
-        val opGen = mutableListOf("generator int op(int x, int y) {")
-        opGen.add("int t = ??;")
-        opGen.add("if (t == 0) { return x + y; }")
-        opGen.add("if (t == 1) { return x * y; }")
-        opGen.add("return x - y;")
+        val opGen = mutableListOf("generator int op(int x, int y, int n) {")
+        opGen.add("if (n > 0) {")
+        opGen.add("\tint t = ??;")
+        opGen.add("\tif (t == 0) { return x + y; }")
+        opGen.add("\tif (t == 1) { return x * y; }")
+        opGen.add("\treturn x - y;")
+        opGen.add("}")
+        opGen.add("assert false;")
         sb.append(opGen.joinToString(separator = "\n\t"))
         sb.append("\n}\n")
 
@@ -241,98 +216,3 @@ class InputFactory(val query: Query) {
         sb.toString()
     }
 }
-
-/*
-Done:
-    variables are for ex. list l; list lout. We produce these from the query: x1...xn for n inputs and out for the output
-    relation states reverse(l, lout), describes functions with which synth spec. free with query
-    generator is the DSL for specs. we hard-code this
-
-example generator - recursive constructor for each type. we'll have to look at the parsing details but this should instead in our impl be a choice between inputs and any output not equal to the true output. key: we only have lengths. I think this might actually be bad since functions aren't unique mappings from size to size. ex filter
-we'll tell it len is uninterpreted but give it values on all example elements including ones we synthesize
-what about this
-pos example
-f(x, y) = z
-len x, y, z given
-negative example
-f(x, y) = w
-len x, y, w given
-
-We should never need to mention f to sketch at all!! Except for producing negative examples. But we could even get
-around that too with asserts, forcing it to only pick things that aren't already pairs.
-ie. if (gen inputs == ex1 inputs) assert gen output != ex1 output
-
-This is sketch code, it is polymorphic. Len will be a polymorphic uninterpreted fn
-void forall<T>([int n], fun f, ref T[n] x){
-    for(int i=0; i<n; ++i){
-        f(x[i]);
-    }
-}
-Len will have a bunch of ifs
-
-length is a polymorphic function which has ifs that check if arg is equal to one of the known example values which we pass in, or global values
-OR
-length is polymorphic uninterpreted function and we have assumes that say its value on example vars
-
-Should we use this for generating negative examples?
-Sketch supports the use of the $(type) construct to instruct the synthesizer to consider all variables of the
-specified type within scope when searching for a solution.
-harness void main(int x) {
-int a = 2;
-double b = 2.3;
-assert x * $(int) == x + x; // $(int) === {| 0 | a | x |}
-}
-BUT The default
-value of any primitive type will also be considered as one of the choices - this may be dangerous
-vars can't be uninitialized, so if we have some dummy x of type T, where T mapsto 3, we need int[1][1][1] x = {{{randint}}}; in the sketch. if y == x, we need y to be the same thing
-
-need generation to take in variables else it'll just output garbage
-
-Harness functions are not allowed to take heap allocated objects (struct, adt) as inputs and all
-global variables are reset to their initial values before the evaluation of each harness.
-
-uninterpreted function cannot involve structs, even if temporary
-    ret_type name(args);
- */
-// template.implementation is all the input code except for var, relation, generator, example
-
-// DO NOT TRANSLATE THESE THEY ARE USELESS
-/*
-private fun generators(): String {
-    val rules = template.getGeneratorRules()
-    return rules.joinToString(separator = "\n") { ruleToCode(it) }
-}
-private fun ruleToCode(rule: Any): String {
-    val typ = rule[0]
-    val symbol = rule[1]
-    val exprList = rule[2]
-
-    val context = template.getContext()
-    val numCallsPrev = mutableMapOf()
-
-    val argDefn = template.getArgsDefn()
-
-    var code = "generator ${typ} ${symbol}_gen(${argDefn}) {\n"
-    code += "\tint t = ??;\n"
-    exprList.forEachIndexed { n, e ->
-        val numCalls = countGeneratorCalls(context, e)
-        code += subcallGen(context, numCallsPrev, numCalls)
-        numCallsPrev = max_dict(numCallsPrev, numCalls)
-
-        val contextInit = context.mapValues { _ -> 0 }
-        val (_, eCode, eOut) = exprToCode(contextInit, e, typ)
-
-        if (n + 1 == exprList.size) {
-            code += eCode
-            code += "\treturn ${eOut};\n"
-        } else {
-            code += "\tif (t == ${n}) {\n"
-            code += eCode
-            code += "\t\treturn ${eOut};\n"
-            code += "\t}\n"
-        }
-    }
-    code += "}\n"
-    return code
-}
-*/

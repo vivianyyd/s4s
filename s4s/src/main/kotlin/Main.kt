@@ -14,8 +14,9 @@ fun bottomUpTests() {
 
 fun main(args: Array<String>) {
 //    bottomUpTests()
-    val ig = InputFactory(addQuery)
-    println(ig.synthInput(addQuery.posExamples, addQuery.negExamples, listOf(), mapOf()))
+    val query = dupQuery
+    val ig = InputFactory(query)
+    println(ig.synthInput(query.posExamples, query.negExamples, listOf(), mapOf()))
 
 //    val input = generateSequence(::readLine).joinToString("\n")
 //    val jsonElement = Json.parseToJsonElement(input)
@@ -63,6 +64,8 @@ val addAllQuery by lazy {
     posExamplesAddAll.add(Example(listOf(mutableListOf(1, 2, 3), listOf(5)), listOf(1, 2, 3, 5)))
     posExamplesAddAll.add(Example(listOf(mutableListOf(1, 2), listOf()), listOf(1, 2)))
     posExamplesAddAll.add(Example(listOf(mutableListOf(), listOf(3)), listOf(3)))
+    // This example is critical! We get kind of nonsense without it
+    posExamplesAddAll.add(Example(listOf(mutableListOf(1, 2, 3), listOf(5, 6, 7, 8)), listOf(1, 2, 3, 5, 6, 7, 8)))
 
     val negExamplesAddAll = mutableListOf<Example>()
     negExamplesAddAll.add(Example(listOf(mutableListOf(1, 2), listOf(3)), listOf(1, 2, 3, 4)))
@@ -75,12 +78,14 @@ fun dup(l: List<Int>): List<Int> = l.flatMap { listOf(it, it) }
 val dupQuery by lazy {
     val t = Type(listOf(List::class), List::class)
 
-    val posExamplesAddAll = mutableListOf<Example>()
-    posExamplesAddAll.add(Example(listOf(listOf(1, 2, 3)), listOf(1, 1, 2, 2, 3, 3)))
-    posExamplesAddAll.add(Example(listOf(listOf<Int>()), listOf<Int>()))
-
-    val negExamplesAddAll = mutableListOf<Example>()
-    negExamplesAddAll.add(Example(listOf(listOf(1, 2)), listOf(1, 2)))
-
-    Query(::addAll, t, posExamplesAddAll, negExamplesAddAll, ListImpl)
+    val posExamplesDup = mutableListOf<Example>()
+    posExamplesDup.add(Example(listOf(listOf(1, 2)), listOf(1, 1, 2, 2)))
+    posExamplesDup.add(Example(listOf(listOf<Int>()), listOf<Int>()))
+    posExamplesDup.add(Example(listOf(listOf(1)), listOf(1, 1)))
+    val negExamplesDup = mutableListOf<Example>()
+    negExamplesDup.add(Example(listOf(listOf(1, 2)), listOf(1, 2)))
+    // With the above examples, we get   lengthT1(o) >= (lengthT1(x0) * lengthT1(x0)) which is unsound
+    posExamplesDup.add(Example(listOf(listOf(1, 2, 3)), listOf(1, 1, 2, 2, 3, 3)))
+    // We now get len(o) - len(x0) >= len(x0) sound, but not precise!
+    Query(::dup, t, posExamplesDup, negExamplesDup, ListImpl)
 }
