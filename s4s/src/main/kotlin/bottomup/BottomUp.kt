@@ -25,7 +25,7 @@ class BottomUp(private val query: Query) {
         return enumerate(function, bound)
     }
 
-    fun enumerate(function: Func, bound: Int): UBoolean? {
+    private fun enumerate(function: Func, bound: Int): UBoolean? {
         enumerateWithValues(function, bound).forEach { (node, evalResult) ->
             if (function.posExamples.all { (evalResult[it] as BooleanValue).value } &&
                 function.negExamples.all { !(evalResult[it] as BooleanValue).value }) {

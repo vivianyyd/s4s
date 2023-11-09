@@ -21,6 +21,7 @@ data class Func(
     val posExamples: List<Example>,
     val negExamples: List<Example>,  // must still be valid types TODO testing: check if we can get expressive examples just with the same inputs but diff outputs. or do the inputs need to be diff
 ){
+    val n = type.inputs.size
     val examples = posExamples + negExamples
     lateinit var argsWithUndefinedLength: Set<Int>
 }

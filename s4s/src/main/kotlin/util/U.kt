@@ -3,6 +3,7 @@ package util
 import bottomup.IntValue
 import bottomup.BooleanValue
 import bottomup.EvaluationResult
+import step2.ProjectedExample
 
 interface U {
     /** Maps each example to this node's value in that example, using cached values. */
@@ -15,6 +16,7 @@ interface U {
 
 interface UBoolean : U {
     fun evaluate(example: Example, impl: UPrimImpl): Boolean
+    fun evaluate(example: ProjectedExample): Boolean
 }
 
 data class UCmp(val cmp: Cmp, val left: UInt, val right: UInt) : UBoolean {
@@ -36,6 +38,9 @@ data class UCmp(val cmp: Cmp, val left: UInt, val right: UInt) : UBoolean {
 
     override fun evaluate(example: Example, impl: UPrimImpl) =
         cmp.evaluate(left.evaluate(example, impl), right.evaluate(example, impl))
+
+    override fun evaluate(example: ProjectedExample) =
+        cmp.evaluate(left.evaluate(example), right.evaluate(example))
 
     override fun toString() = "$left $cmp $right"
 }
@@ -74,6 +79,9 @@ data class UBop(val op: BoolOp, val left: UBoolean, val right: UBoolean? = null)
     override fun evaluate(example: Example, impl: UPrimImpl) =
         op.evaluate(left.evaluate(example, impl), right?.evaluate(example, impl))
 
+    override fun evaluate(example: ProjectedExample) =
+        op.evaluate(left.evaluate(example), right?.evaluate(example))
+
     override fun toString() = when (op) {
         BoolOp.AND, BoolOp.OR -> "$left $op $right"
         BoolOp.NOT -> "$op $left"
@@ -82,6 +90,7 @@ data class UBop(val op: BoolOp, val left: UBoolean, val right: UBoolean? = null)
 
 interface UInt : U {
     fun evaluate(example: Example, impl: UPrimImpl): Int
+    fun evaluate(example: ProjectedExample): Int
 }
 
 data class ULiteral(val value: Int) : UInt {
@@ -95,6 +104,8 @@ data class ULiteral(val value: Int) : UInt {
     }
 
     override fun evaluate(example: Example, impl: UPrimImpl) = value
+
+    override fun evaluate(example: ProjectedExample) = value
 
     override fun toString() = "$value"
 }
@@ -112,6 +123,9 @@ data class ULen(val parameter: Int) : UInt {
 
     override fun evaluate(example: Example, impl: UPrimImpl) =
         impl.len(if (parameter == -1) example.output else example.inputs[parameter])
+
+    override fun evaluate(example: ProjectedExample) =
+        if (parameter == -1) example.output.len else example.inputs[parameter].len
 
     override fun evaluateFromCachedChildren(
         function: Func,
@@ -144,6 +158,9 @@ data class UOp(val op: IntOp, val left: UInt, val right: UInt) : UInt {
 
     override fun evaluate(example: Example, impl: UPrimImpl) =
         op.evaluate(left.evaluate(example, impl), right.evaluate(example, impl))
+
+    override fun evaluate(example: ProjectedExample) =
+        op.evaluate(left.evaluate(example), right.evaluate(example))
 
     override fun toString() = "$left $op $right"
 }

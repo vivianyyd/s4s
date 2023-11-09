@@ -57,7 +57,12 @@ these examples support our claim that positive examples improve soundness
 
 
 
-
+Something that's tricky is when we go top down, we accumulate constraints on children of trees. For example, if we apply
+concatenate, we have the constraint that the children must add to the parent lengths. But this is hard to actually do,
+since we don't really know how to partition the lengths without trying all of them. But we also have the heuristic that
+smaller programs are better. So in a sense we kind of want to bottom up filling in the holes. Maybe we can alternate
+between top-down and bottom-up somehow. This really makes me want to just use version spaces but I haven't really
+thought about how that would work.
 
 
 
