@@ -21,13 +21,8 @@ class InputFactory(val function: Func, val query: Query) {
     }
 
     private fun paramToName(param: Int) = if (param == numInputs) "o" else "x$param"
-
     private val argsDefn = (0..numInputs).joinToString(separator = ", ") { "int ${paramToName(it)}" }
-
     private val argsCall = (0..numInputs).joinToString(separator = ", ") { paramToName(it) }
-
-    /** Gonna keep this til we understand it */
-    private fun lamFunctions(lams: Lambdas) = lams.values.joinToString(postfix = "\n", separator = "\n")
 
     /**
      * Spyro generates code for positive examples which looks like:
@@ -60,17 +55,17 @@ class InputFactory(val function: Func, val query: Query) {
         return lines.joinToString(separator = "\n\t")
     }
 
-    private fun posExamples(pos: Examples): String {
+    private fun posExamples(): String {
         val sk = StringBuilder()
-        pos.forEachIndexed { i, ex ->
+        function.posExamples.forEachIndexed { i, ex ->
             sk.append("harness void positive_example_$i () {\n${sketchEx(ex, false)}\n}\n")
         }
         return sk.toString()
     }
 
-    private fun negExamplesSynth(negMust: Examples, negMay: Examples): String {
+    private fun negExamplesSynth(negMay: Examples): String {
         val sk = StringBuilder()
-        (negMay + negMust).forEachIndexed { i, ex ->
+        (negMay + function.negExamples).forEachIndexed { i, ex ->
             sk.append("\nharness void negative_example_$i () {\n${sketchEx(ex, true)}\n}\n\n")
         }
         return sk.toString()
@@ -122,13 +117,13 @@ class InputFactory(val function: Func, val query: Query) {
         ld.joinToString(separator = "\n\t", postfix = "\n}\n")
     }
 
-    fun synthInput(pos: Examples, negMust: Examples, negMay: Examples, lams: Lambdas): String {
+    fun synthInput(negMay: Examples, lams: Lambdas): String {
         val sk = StringBuilder()
         sk.append(setup)
         sk.append(uGrammar)
         sk.append(lamFunctions(lams))
-        sk.append(posExamples(pos))
-        sk.append(negExamplesSynth(negMust, negMay))
+        sk.append(posExamples())
+        sk.append(negExamplesSynth(negMay))
         sk.append(propertyCode())
         return sk.toString()
     }
@@ -141,6 +136,76 @@ class InputFactory(val function: Func, val query: Query) {
         TODO()
     }
 
+    private fun uToSketch(phi: U): String = TODO("We may end up just representing phi as a string in this file")
+
+    private fun obtainedPropertyCode(phi: U): String {
+        return "void obtained_property($argsDefn, ref boolean out) {\n\t${uToSketch(phi)}\n}\n\n"
+    }
+
+    private fun prevPropertyCode(i: Int, phi: U): String {
+        return "void prev_property_$i($argsDefn, ref boolean out) {\n\t${uToSketch(phi)}\n}\n\n"
+    }
+
+    private fun propertyConjCode(phiList: List<U>): String {
+        val sb = StringBuilder()
+        phiList.forEachIndexed { i, phi -> sb.append("${prevPropertyCode(i, phi)}\n") }
+
+        val block = mutableListOf("void property_conj($argsDefn, ref boolean out) {\n")
+        for (i in phiList.indices) {
+            block.add("boolean out_$i;")
+            block.add("prev_property_$i($argsCall, out_$i);")
+        }
+        if (phiList.isEmpty()) block.add("out = true;")
+        else {
+            block.add("out = ${(phiList.indices).joinToString(separator = " && ") { "out_$it" }};")
+        }
+        sb.append(block.joinToString(separator="\n\t", postfix="\n"))
+        sb.append("}\n")
+        return sb.toString()
+    }
+
+    fun exampleGenerators(): String = TODO("just a switch case between all the dummy ints!")
+
+    fun negativeExample(): String {
+        TODO()
+        /*
+        def decl(typ, symbol):
+            hole = f'{typ}_gen()'
+            return f'\t{typ} {symbol} = {hole};'
+
+        return '\n'.join([decl(typ, symbol) for typ, symbol in self.__var_decls])
+
+
+        int x1 = int_gen();
+        int x2 = int_gen();
+        int o = int_gen();
+
+         */
+    }
+
+    private fun precisionCode(): String {
+        val code = mutableListOf("harness void precision() {")
+        // Construct negative example
+        /* Spyro doesn't directly synthesize a negative example; they just call generators to get values of the
+           correct type. As a result, they need to do checkSoundness after this step since they might synth a
+           "counterexample" that's actually positive, resulting in an unsound property. But we just directly synthesize
+           an example which is certainly negative, so we can skip that step! */
+        code += negativeExample()
+        // Previous property is true on our counterexample
+        code += "boolean out_1;"
+        code += "obtained_property($argsCall,out_1);"
+        code += "assert out_1;\n"
+        // Our counterexample is new, that is, no prev phis reject it
+        code += "boolean out_2;"
+        code += "property_conj($argsCall,out_2);"
+        code += "assert out_2;\n"
+        // We have a new property that rejects it, so it is strictly more precise
+        code += "boolean out_3;"
+        code += "property($argsCall,out_3);"
+        code += "assert !out_3;"
+        return code.joinToString(separator="\n\t", postfix="}\n")
+    }
+
     fun precisionInput(
         phi: U,
         phiList: List<U>,
@@ -149,7 +214,18 @@ class InputFactory(val function: Func, val query: Query) {
         negMay: Examples,
         lams: Lambdas
     ): String {
-        TODO()
+        val sk = StringBuilder()
+        sk.append(setup)
+        sk.append(uGrammar)
+        sk.append(lamFunctions(lams))
+        sk.append(posExamples())
+        sk.append(negExamplesSynth(negMay))
+        sk.append(propertyCode())
+        sk.append(obtainedPropertyCode(phi))
+        sk.append(propertyConjCode(phiList))
+        sk.append(exampleGenerators())
+        sk.append(precisionCode())
+        return sk.toString()
     }
 
     /**
@@ -216,4 +292,7 @@ class InputFactory(val function: Func, val query: Query) {
         sb.append("\n")
         sb.toString()
     }
+
+    /** Gonna keep this til we understand it */
+    private fun lamFunctions(lams: Lambdas) = lams.values.joinToString(postfix = "\n", separator = "\n")
 }

@@ -16,7 +16,7 @@ fun main(args: Array<String>) {
 //    bottomUpTests()
     val func = dupFunc
     val ig = InputFactory(func, query)
-    println(ig.synthInput(func.posExamples, func.negExamples, listOf(), mapOf()))
+    println(ig.synthInput(listOf(), mapOf()))
 
 //    val input = generateSequence(::readLine).joinToString("\n")
 //    val jsonElement = Json.parseToJsonElement(input)
