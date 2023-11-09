@@ -51,3 +51,28 @@ sound, but not precise.
 
 
 these examples support our claim that positive examples improve soundness
+
+
+
+
+
+
+
+
+
+
+
+make everything an int and just distinguish types myself?
+
+more readable sketch maybe: create a sketch struct
+struct Prog(x = ??, y = ??,...)
+then prog = Prog
+int interpret(int input, Prog p) that needs a parser
+
+maybe can make genreator return struct who knows if will do the thing
+
+
+assert 0 at end of concrete len
+avoid uninterp maybe
+
+Kevin OH. Is there anything really bad about using hard coded bottom instead of uninterpreted, if we'll never test it on something len isn't defined anyway?  Any way to build in preference for <,>. Yes but syntactic constraint less good. Think.... maybe we can prefer predicates that are false for other functions but true for this one. Like neg may. Ask sketch to minimize size of expr. Kevin can email the thing where he uses structs to make sketch print prettier
