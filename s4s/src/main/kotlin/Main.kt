@@ -81,11 +81,11 @@ val dupQuery by lazy {
     val posExamplesDup = mutableListOf<Example>()
     posExamplesDup.add(Example(listOf(listOf(1, 2)), listOf(1, 1, 2, 2)))
     posExamplesDup.add(Example(listOf(listOf<Int>()), listOf<Int>()))
-
     posExamplesDup.add(Example(listOf(listOf(1)), listOf(1, 1)))
-
     val negExamplesDup = mutableListOf<Example>()
     negExamplesDup.add(Example(listOf(listOf(1, 2)), listOf(1, 2)))
-
+    // With the above examples, we get   lengthT1(o) >= (lengthT1(x0) * lengthT1(x0)) which is unsound
+    posExamplesDup.add(Example(listOf(listOf(1, 2, 3)), listOf(1, 1, 2, 2, 3, 3)))
+    // We now get len(o) - len(x0) >= len(x0) sound, but not precise!
     Query(::dup, t, posExamplesDup, negExamplesDup, ListImpl)
 }

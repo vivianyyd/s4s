@@ -55,8 +55,6 @@ class InputFactory(val query: Query) {
         paramToName(it)
     }
 
-    private fun sketchVals(args: List<Any>) = args.map { argToConstructorCall[it] }.joinToString(separator = ", ")
-
     /** Gonna keep this til we understand it */
     private fun lamFunctions(lams: Lambdas) = lams.values.joinToString(postfix = "\n", separator = "\n")
 
@@ -155,13 +153,13 @@ class InputFactory(val query: Query) {
         // Declare length functions
         (0..numInputs).filter {
             lenDefinedForParam(it)
-        }.map { paramToSketchType[it] }.toSet().forEach {ty ->
+        }.map { paramToSketchType[it] }.toSet().forEach { ty ->
             val ld = mutableListOf("int length$ty($ty x) {")
             typeToArgs[ty]!!.forEach { arg ->
                 ld.add("if (x.v == ${argToVVal[arg]}) { return ${query.lens[arg]}; }")
             }
             ld.add("assert false;")
-            sk.append(ld.joinToString(separator="\n\t", postfix="\n}\n"))
+            sk.append(ld.joinToString(separator = "\n\t", postfix = "\n}\n"))
         }
 
         sk.toString()
