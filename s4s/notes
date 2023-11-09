@@ -74,6 +74,104 @@ then prog = Prog
 int interpret(int input, Prog p) that needs a parser
 maybe can make genreator return struct who knows if will do the thing
 
+
+
+
+/*
+Done:
+    variables are for ex. list l; list lout. We produce these from the query: x1...xn for n inputs and out for the output
+    relation states reverse(l, lout), describes functions with which synth spec. free with query
+    generator is the DSL for specs. we hard-code this
+
+example generator - recursive constructor for each type. we'll have to look at the parsing details but this should instead in our impl be a choice between inputs and any output not equal to the true output. key: we only have lengths. I think this might actually be bad since functions aren't unique mappings from size to size. ex filter
+we'll tell it len is uninterpreted but give it values on all example elements including ones we synthesize
+what about this
+pos example
+f(x, y) = z
+len x, y, z given
+negative example
+f(x, y) = w
+len x, y, w given
+
+We should never need to mention f to sketch at all!! Except for producing negative examples. But we could even get
+around that too with asserts, forcing it to only pick things that aren't already pairs.
+ie. if (gen inputs == ex1 inputs) assert gen output != ex1 output
+
+This is sketch code, it is polymorphic. Len will be a polymorphic uninterpreted fn
+void forall<T>([int n], fun f, ref T[n] x){
+    for(int i=0; i<n; ++i){
+        f(x[i]);
+    }
+}
+Len will have a bunch of ifs
+
+length is a polymorphic function which has ifs that check if arg is equal to one of the known example values which we pass in, or global values
+OR
+length is polymorphic uninterpreted function and we have assumes that say its value on example vars
+
+Should we use this for generating negative examples?
+Sketch supports the use of the $(type) construct to instruct the synthesizer to consider all variables of the
+specified type within scope when searching for a solution.
+harness void main(int x) {
+int a = 2;
+double b = 2.3;
+assert x * $(int) == x + x; // $(int) === {| 0 | a | x |}
+}
+BUT The default
+value of any primitive type will also be considered as one of the choices - this may be dangerous
+vars can't be uninitialized, so if we have some dummy x of type T, where T mapsto 3, we need int[1][1][1] x = {{{randint}}}; in the sketch. if y == x, we need y to be the same thing
+
+need generation to take in variables else it'll just output garbage
+
+Harness functions are not allowed to take heap allocated objects (struct, adt) as inputs and all
+global variables are reset to their initial values before the evaluation of each harness.
+
+uninterpreted function cannot involve structs, even if temporary
+    ret_type name(args);
+ */
+// template.implementation is all the input code except for var, relation, generator, example
+
+// DO NOT TRANSLATE THESE THEY ARE USELESS
+/*
+private fun generators(): String {
+    val rules = template.getGeneratorRules()
+    return rules.joinToString(separator = "\n") { ruleToCode(it) }
+}
+private fun ruleToCode(rule: Any): String {
+    val typ = rule[0]
+    val symbol = rule[1]
+    val exprList = rule[2]
+
+    val context = template.getContext()
+    val numCallsPrev = mutableMapOf()
+
+    val argDefn = template.getArgsDefn()
+
+    var code = "generator ${typ} ${symbol}_gen(${argDefn}) {\n"
+    code += "\tint t = ??;\n"
+    exprList.forEachIndexed { n, e ->
+        val numCalls = countGeneratorCalls(context, e)
+        code += subcallGen(context, numCallsPrev, numCalls)
+        numCallsPrev = max_dict(numCallsPrev, numCalls)
+
+        val contextInit = context.mapValues { _ -> 0 }
+        val (_, eCode, eOut) = exprToCode(contextInit, e, typ)
+
+        if (n + 1 == exprList.size) {
+            code += eCode
+            code += "\treturn ${eOut};\n"
+        } else {
+            code += "\tif (t == ${n}) {\n"
+            code += eCode
+            code += "\t\treturn ${eOut};\n"
+            code += "\t}\n"
+        }
+    }
+    code += "}\n"
+    return code
+}
+*/
+
 Note that we don't rly think about generics. ie all lists have to be for ex. int list or str list. shouldn't be that bad
 to generalize. we accept this limitation bc kotlin reflection is confusing and we didn't bother making a nicer
 representation of types. so. this for arbitrary kotlin library
