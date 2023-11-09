@@ -1,5 +1,6 @@
 package sketchral
 
+import kotlin.reflect.KClass
 import util.Example
 import util.Func
 import util.Query
@@ -10,14 +11,17 @@ class InputFactory(val function: Func, val query: Query) {
     private val minimizeTerms = false  // TODO add commandline flag later
     private val numInputs = function.type.inputs.size
     private val argToDummy = mutableMapOf<Any, Int>()
+    private val outputDummies: Set<Int>
     private val paramsWithLen =
         (0..numInputs).filter { (if (it == numInputs) -1 else it) !in function.argsWithUndefinedLength }
 
     init {
         // Make dummy values for examples
+        val typeList = function.type.inputs + listOf(function.type.output)
         function.examples.flatMap { (it.inputs + listOf(it.output)) }.toSet().forEachIndexed { i, arg ->
             argToDummy[arg] = i
         }
+        outputDummies = function.examples.mapNotNull { argToDummy[it.output] }.toSet()
     }
 
     private fun paramToName(param: Int) = if (param == numInputs) "o" else "x$param"
@@ -159,28 +163,32 @@ class InputFactory(val function: Func, val query: Query) {
         else {
             block.add("out = ${(phiList.indices).joinToString(separator = " && ") { "out_$it" }};")
         }
-        sb.append(block.joinToString(separator="\n\t", postfix="\n"))
+        sb.append(block.joinToString(separator = "\n\t", postfix = "\n"))
         sb.append("}\n")
         return sb.toString()
     }
 
-    fun exampleGenerators(): String = TODO("just a switch case between all the dummy ints!")
+    val getExample by lazy {
+        val code = mutableListOf("int get_ex(int t, int i) {")
+        // TODO THIS KOTLIN FUNCTION MUST BE CALLED IN PRECISION INPUT, OUTSIDE OF THE PRECISION CODE SINCE ITS TOP LEVEL FN DECL
+        //  get_ex(t, i) will return the i'th argument of the t'th example. based on t, pick an input tuple and return
+        //  the value at the correct position
+        code.joinToString(separator="\n\t")
+    }
+
+    val dummyOutput by lazy { TODO("function that just switches between all output dummies") }
 
     fun negativeExample(): String {
-        TODO()
-        /*
-        def decl(typ, symbol):
-            hole = f'{typ}_gen()'
-            return f'\t{typ} {symbol} = {hole};'
-
-        return '\n'.join([decl(typ, symbol) for typ, symbol in self.__var_decls])
-
-
-        int x1 = int_gen();
-        int x2 = int_gen();
-        int o = int_gen();
-
-         */
+        val code = mutableListOf("int t = ??;")
+        // Select a preexisting combination of inputs
+        (0 until numInputs).forEach {
+            code.add("int ${paramToName(it)} = get_ex(t, $it);")
+        }
+        // Select an output which is not the real one
+        code.add("int o = dummyOutput();")
+        code.add("int real_out = get_ex(t, $numInputs)")
+        code.add("assert o != real_out")
+        return code.joinToString(separator = "\n\t", postfix="\n")
     }
 
     private fun precisionCode(): String {
@@ -203,7 +211,7 @@ class InputFactory(val function: Func, val query: Query) {
         code += "boolean out_3;"
         code += "property($argsCall,out_3);"
         code += "assert !out_3;"
-        return code.joinToString(separator="\n\t", postfix="}\n")
+        return code.joinToString(separator = "\n\t", postfix = "}\n")
     }
 
     fun precisionInput(
@@ -223,7 +231,6 @@ class InputFactory(val function: Func, val query: Query) {
         sk.append(propertyCode())
         sk.append(obtainedPropertyCode(phi))
         sk.append(propertyConjCode(phiList))
-        sk.append(exampleGenerators())
         sk.append(precisionCode())
         return sk.toString()
     }
