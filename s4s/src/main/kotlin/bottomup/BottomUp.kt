@@ -17,13 +17,18 @@ typealias TypeSize = Pair<KClass<*>, Int>
 typealias EvaluationResult = Map<Example, Value>
 
 class BottomUp(private val query: Query) {
-    private val typeSizeToExpr: MutableMap<TypeSize, MutableList<Pair<U, EvaluationResult>>> = mutableMapOf()
-    private val valuesToExpr: MutableMap<EvaluationResult, U> = mutableMapOf()
+    private val properties: MutableMap<Func, UBoolean?> = mutableMapOf()
 
-    fun enumerate(bound: Int = 8): UBoolean? {
-        enumerateWithValues(bound).forEach { (node, evalResult) ->
-            if (query.posExamples.all { (evalResult[it] as BooleanValue).value } &&
-                query.negExamples.all { !(evalResult[it] as BooleanValue).value }) {
+    fun property(function: Func, bound: Int = 8): UBoolean? {
+        assert(function in query.functions)
+        if (function in properties) return properties[function]
+        return enumerate(function, bound)
+    }
+
+    fun enumerate(function: Func, bound: Int): UBoolean? {
+        enumerateWithValues(function, bound).forEach { (node, evalResult) ->
+            if (function.posExamples.all { (evalResult[it] as BooleanValue).value } &&
+                function.negExamples.all { !(evalResult[it] as BooleanValue).value }) {
                 return node
             }
         }
@@ -32,20 +37,24 @@ class BottomUp(private val query: Query) {
 
     /** Just like [enumerate], but also yields the result of evaluating the yielded node in all environments as
     specified by the examples in [query]. Only yields booleans. */
-    private fun enumerateWithValues(bound: Int) = iterator {
+    private fun enumerateWithValues(function: Func, bound: Int) = iterator {
+        val typeSizeToExpr: MutableMap<TypeSize, MutableList<Pair<U, EvaluationResult>>> = mutableMapOf()
+        val valuesToExpr: MutableMap<EvaluationResult, U> = mutableMapOf()
+
         // Some literals
         (0..1).forEach { literal ->
-            val nodeAndEvaluated = Pair(ULiteral(literal), query.examples.associateWith { IntValue(literal) })
+            val nodeAndEvaluated = Pair(ULiteral(literal), function.examples.associateWith { IntValue(literal) })
             typeSizeToExpr.addMulti(
                 Pair(Int::class, 1),
                 nodeAndEvaluated
             )
         }
         // The lengths of all parameters
-        val lenTerminals = ((-1 until query.type.inputs.size)).filter { it !in query.argsWithUndefinedLength }.map { ULen(it) }
+        val lenTerminals =
+            ((-1 until function.type.inputs.size)).filter { it !in function.argsWithUndefinedLength }.map { ULen(it) }
         val lenNodes = mutableListOf<Pair<U, EvaluationResult>>()
         for (lenNode in lenTerminals) {
-            val evaluated = lenNode.evaluate(query)
+            val evaluated = lenNode.evaluate(function, query.uImpl)
             if (evaluated in valuesToExpr) continue
             valuesToExpr[evaluated] = lenNode
             typeSizeToExpr.addMulti(
@@ -55,9 +64,39 @@ class BottomUp(private val query: Query) {
             lenNodes.add(Pair(lenNode, evaluated))
         }
 
+        /** Just here to reduce some code duplication. */
+        fun generateAndStore(
+            function: Func,
+            numChildren: Int,
+            makeNode: (List<Pair<U, EvaluationResult>>) -> U,
+            childType: KClass<*>,
+            returnType: KClass<*>,
+            size: Int
+        ) = iterator {
+            for (childPartitions in intPartitions(size - 1 - numChildren, numChildren)) {
+                val candidates = mutableListOf<List<Pair<U, EvaluationResult>>>()
+                childPartitions.forEach { childMinusOne ->
+                    typeSizeToExpr[Pair(childType, childMinusOne + 1)]?.let { candidates.add(it) }
+                }
+                if (candidates.size != numChildren) {
+                    continue
+                }  // we failed to find candidates for all children, so this partition won't work
+                for (candidateArgs in product(candidates.first(), candidates.last())) {
+                    val node = makeNode(candidateArgs)
+                    val evaluated =
+                        node.evaluateFromCachedChildren(function, query.uImpl, candidateArgs.map { it.second })
+                    if (evaluated in valuesToExpr) continue
+                    valuesToExpr[evaluated] = node
+                    typeSizeToExpr.addMulti(Pair(returnType, size), Pair(node, evaluated))
+                    yield(Pair(node, evaluated))
+                }
+            }
+        }
+
         for (possSize in 2..bound) {
             IntOp.values().forEach { op ->
                 generateAndStore(
+                    function,
                     2,
                     makeNode = { args -> UOp(op, args.first().first as UInt, args.last().first as UInt) },
                     childType = Int::class,
@@ -67,6 +106,7 @@ class BottomUp(private val query: Query) {
             }
             Cmp.values().forEach { cmp ->
                 generateAndStore(
+                    function,
                     2,
                     makeNode = { args -> UCmp(cmp, args.first().first as UInt, args.last().first as UInt) },
                     childType = Int::class,
@@ -77,6 +117,7 @@ class BottomUp(private val query: Query) {
             BoolOp.values().forEach { op ->
                 when (op) {
                     BoolOp.AND, BoolOp.OR -> generateAndStore(
+                        function,
                         2,
                         makeNode = { args -> UBop(op, args.first().first as UBoolean, args.last().first as UBoolean) },
                         Boolean::class,
@@ -84,6 +125,7 @@ class BottomUp(private val query: Query) {
                         possSize
                     ).forEach { yield(it as Pair<UBoolean, EvaluationResult>) }
                     BoolOp.NOT -> generateAndStore(
+                        function,
                         1,
                         makeNode = { args -> UBop(op, args.first().first as UBoolean) },
                         Boolean::class,
@@ -95,32 +137,6 @@ class BottomUp(private val query: Query) {
         }
     }
 
-    /** Just here to reduce some code duplication. */
-    private fun generateAndStore(
-        numChildren: Int,
-        makeNode: (List<Pair<U, EvaluationResult>>) -> U,
-        childType: KClass<*>,
-        returnType: KClass<*>,
-        size: Int
-    ) = iterator {
-        for (childPartitions in intPartitions(size - 1 - numChildren, numChildren)) {
-            val candidates = mutableListOf<List<Pair<U, EvaluationResult>>>()
-            childPartitions.forEach { childMinusOne ->
-                typeSizeToExpr[Pair(childType, childMinusOne + 1)]?.let { candidates.add(it) }
-            }
-            if (candidates.size != numChildren) {
-                continue
-            }  // we failed to find candidates for all children, so this partition won't work
-            for (candidateArgs in product(candidates.first(), candidates.last())) {
-                val node = makeNode(candidateArgs)
-                val evaluated = node.evaluateFromCachedChildren(query, candidateArgs.map { it.second })
-                if (evaluated in valuesToExpr) continue
-                valuesToExpr[evaluated] = node
-                typeSizeToExpr.addMulti(Pair(returnType, size), Pair(node, evaluated))
-                yield(Pair(node, evaluated))
-            }
-        }
-    }
 
     private fun <K, V> MutableMap<K, MutableList<V>>.addMulti(key: K, value: V) {
         if (key in this) {

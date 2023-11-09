@@ -1,20 +1,21 @@
 package sketchral
 
 import util.Example
+import util.Func
 import util.Query
 import util.U
 
-class InputFactory(val query: Query) {
+class InputFactory(val function: Func, val query: Query) {
     private val numAtom = 1  // TODO add flag later
     private val minimizeTerms = false  // TODO add commandline flag later
-    private val numInputs = query.type.inputs.size
+    private val numInputs = function.type.inputs.size
     private val argToDummy = mutableMapOf<Any, Int>()
     private val paramsWithLen =
-        (0..numInputs).filter { (if (it == numInputs) -1 else it) !in query.argsWithUndefinedLength }
+        (0..numInputs).filter { (if (it == numInputs) -1 else it) !in function.argsWithUndefinedLength }
 
     init {
         // Make dummy values for examples
-        query.examples.flatMap { (it.inputs + listOf(it.output)) }.toSet().forEachIndexed { i, arg ->
+        function.examples.flatMap { (it.inputs + listOf(it.output)) }.toSet().forEachIndexed { i, arg ->
             argToDummy[arg] = i
         }
     }
@@ -114,7 +115,7 @@ class InputFactory(val query: Query) {
     private val setup by lazy {
         // Declare length function
         val ld = mutableListOf("int length(int x) {")
-        query.examples.flatMap { it.args.filterIndexed { i, _ -> i in paramsWithLen } }.forEach { arg ->
+        function.examples.flatMap { it.args.filterIndexed { i, _ -> i in paramsWithLen } }.toSet().forEach { arg ->
             ld.add("if (x == ${argToDummy[arg]}) { return ${query.lens[arg]}; }")
         }
         ld.add("assert false;")

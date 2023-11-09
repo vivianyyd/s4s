@@ -6,7 +6,11 @@ import bottomup.EvaluationResult
 
 interface U {
     /** Maps each example to this node's value in that example, using cached values. */
-    fun evaluateFromCachedChildren(query: Query, cachedChildren: List<EvaluationResult>): EvaluationResult
+    fun evaluateFromCachedChildren(
+        function: Func,
+        impl: UPrimImpl,
+        cachedChildren: List<EvaluationResult>
+    ): EvaluationResult
 }
 
 interface UBoolean : U {
@@ -15,11 +19,12 @@ interface UBoolean : U {
 
 data class UCmp(val cmp: Cmp, val left: UInt, val right: UInt) : UBoolean {
     override fun evaluateFromCachedChildren(
-        query: Query,
+        function: Func,
+        impl: UPrimImpl,
         cachedChildren: List<EvaluationResult>
     ): EvaluationResult {
         assert(cachedChildren.size == 2)
-        return query.examples.associateWith { ex ->
+        return function.examples.associateWith { ex ->
             BooleanValue(
                 cmp.evaluate(
                     (cachedChildren.first()[ex] as IntValue).value,
@@ -37,13 +42,14 @@ data class UCmp(val cmp: Cmp, val left: UInt, val right: UInt) : UBoolean {
 
 data class UBop(val op: BoolOp, val left: UBoolean, val right: UBoolean? = null) : UBoolean {
     override fun evaluateFromCachedChildren(
-        query: Query,
+        function: Func,
+        impl: UPrimImpl,
         cachedChildren: List<EvaluationResult>
     ): EvaluationResult {
         when (op) {
             BoolOp.AND, BoolOp.OR -> {
                 assert(cachedChildren.size == 2)
-                return query.examples.associateWith { ex ->
+                return function.examples.associateWith { ex ->
                     BooleanValue(
                         op.evaluate(
                             (cachedChildren.first()[ex] as BooleanValue).value,
@@ -54,7 +60,7 @@ data class UBop(val op: BoolOp, val left: UBoolean, val right: UBoolean? = null)
             }
             BoolOp.NOT -> {
                 assert(cachedChildren.size == 2)
-                return query.examples.associateWith { ex ->
+                return function.examples.associateWith { ex ->
                     BooleanValue(
                         op.evaluate(
                             (cachedChildren.first()[ex] as BooleanValue).value, null
@@ -80,11 +86,12 @@ interface UInt : U {
 
 data class ULiteral(val value: Int) : UInt {
     override fun evaluateFromCachedChildren(
-        query: Query,
+        function: Func,
+        impl: UPrimImpl,
         cachedChildren: List<EvaluationResult>
     ): EvaluationResult {
         assert(cachedChildren.isEmpty())
-        return query.examples.associateWith { IntValue(value) }
+        return function.examples.associateWith { IntValue(value) }
     }
 
     override fun evaluate(example: Example, impl: UPrimImpl) = value
@@ -96,10 +103,10 @@ data class ULiteral(val value: Int) : UInt {
  * @param parameter: The index of the parameter. The output is index -1.
  */
 data class ULen(val parameter: Int) : UInt {
-    fun evaluate(query: Query): EvaluationResult {
-        return query.examples.associateWith { ex ->
+    fun evaluate(function: Func, impl: UPrimImpl): EvaluationResult {
+        return function.examples.associateWith { ex ->
             val element = if (parameter == -1) ex.output else ex.inputs[parameter]
-            IntValue(query.lens[element]!!)
+            IntValue(impl.len(element))
         }
     }
 
@@ -107,11 +114,12 @@ data class ULen(val parameter: Int) : UInt {
         impl.len(if (parameter == -1) example.output else example.inputs[parameter])
 
     override fun evaluateFromCachedChildren(
-        query: Query,
+        function: Func,
+        impl: UPrimImpl,
         cachedChildren: List<EvaluationResult>
     ): EvaluationResult {
         assert(cachedChildren.isEmpty())
-        return evaluate(query)
+        return evaluate(function, impl)
     }
 
     override fun toString() = if (parameter == -1) "len(out)" else "len(x$parameter)"
@@ -119,11 +127,12 @@ data class ULen(val parameter: Int) : UInt {
 
 data class UOp(val op: IntOp, val left: UInt, val right: UInt) : UInt {
     override fun evaluateFromCachedChildren(
-        query: Query,
+        function: Func,
+        impl: UPrimImpl,
         cachedChildren: List<EvaluationResult>
     ): EvaluationResult {
         assert(cachedChildren.size == 2)
-        return query.examples.associateWith { ex ->
+        return function.examples.associateWith { ex ->
             IntValue(
                 op.evaluate(
                     (cachedChildren.first()[ex] as IntValue).value,
