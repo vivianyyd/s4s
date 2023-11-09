@@ -1,16 +1,13 @@
 package sketchral
 
-import util.Query
-import util.Example
-import util.U
-import util.UInt
+import util.*
 import kotlin.reflect.jvm.internal.impl.types.TypeCheckerState.SupertypesPolicy.None
 
 typealias Lambdas = Map<String, String>
 typealias Examples = List<Example>
 
-class PropertySynthesizer(query: Query) {
-    private val inputFactory = InputFactory(query)
+class PropertySynthesizer(function: Func, query: Query) {
+    private val inputFactory = InputFactory(function, query)
 
     // TODO timeout variable up here and make each step check for timeout
 
