@@ -44,7 +44,7 @@ class PropertySynthesizer(function: Func, query: Query) {
         val output = callSketch(code)
         return if (output != null) {
             val outParser = OutputParser(output)
-            val phi = outParser.parseProperty()
+            val phi = ULiteral(123456) // TODO outParser.parseProperty()
             val lam = outParser.getLams()
             Pair(phi, lam)
         } else Pair(null, null)
@@ -71,7 +71,7 @@ class PropertySynthesizer(function: Func, query: Query) {
         return if (output != null) {
             val outParser = OutputParser(output)
             val (newNegMay, delta) = outParser.parseMaxsat(negMay)
-            val phi = outParser.parseProperty()
+            val phi = ULiteral(123456) // TODO outParser.parseProperty()
             val lam = outParser.getLams()
             Pair(Pair(newNegMay, delta), Pair(phi, lam))
         } else {
@@ -95,19 +95,17 @@ class PropertySynthesizer(function: Func, query: Query) {
     }
 
     fun checkPrecision(
-        phi: U,
-        phiList: List<U>,
-        pos: Examples,
-        negMust: Examples,
+        phi: String,
+        phiList: List<String>,
         negMay: Examples,
         lams: Lambdas
     ): Triple<Example?, U?, Lambdas?> {
-        val code = inputFactory.precisionInput(phi, phiList, pos, negMust, negMay, lams)
+        val code = inputFactory.precisionInput(phi, phiList, negMay, lams)
         val output = callSketch(code)
         if (output != null) {
             val outParser = OutputParser(output)
             val negEx = outParser.parseNegExPrecision()
-            val newPhi = outParser.parseProperty()
+            val newPhi = ULiteral(123456) // TODO outParser.parseProperty()
             val lam = outParser.getLams()
             return Triple(negEx, newPhi, lam)
         } else {
@@ -177,15 +175,16 @@ class PropertySynthesizer(function: Func, query: Query) {
                 if (updatePsi && negMay.isNotEmpty()) {
                     phiList = phiList + listOf(phiE)
                 }
-                var (eNeg, phi, lam) = checkPrecision(phiE, phiList as List<U>, pos, negMust, negMay, lamFunctions)
-                if (eNeg != null) {
-                    phiE = phi
-                    negMay = negMay.plus(eNeg)
-                    lamFunctions = lam as Lambdas
-                } else {
-                    //skipping line about filtering neg delta
-                    return Pair(Pair(phiE, pos), Triple(negMust.plus(negMay), negDelta, lamFunctions))
-                }
+                TODO()
+//                var (eNeg, phi, lam) = checkPrecision(phiE, phiList as List<U>, negMay, lamFunctions)
+//                if (eNeg != null) {
+//                    phiE = phi
+//                    negMay = negMay.plus(eNeg)
+//                    lamFunctions = lam as Lambdas
+//                } else {
+//                    //skipping line about filtering neg delta
+//                    return Pair(Pair(phiE, pos), Triple(negMust.plus(negMay), negDelta, lamFunctions))
+//                }
                 /**skipping may move/ hyperparameters*/
 
             }

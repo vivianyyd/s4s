@@ -1,6 +1,5 @@
 package sketchral
 
-import kotlin.reflect.KClass
 import util.Example
 import util.Func
 import util.Query
@@ -126,8 +125,10 @@ class InputFactory(val function: Func, val query: Query) {
         sk.append(setup)
         sk.append(uGrammar)
         sk.append(lamFunctions(lams))
+        sk.append("// -------------------- Begin examples ------------------------\n")
         sk.append(posExamples())
         sk.append(negExamplesSynth(negMay))
+        sk.append("// -------------------- End examples ------------------------\n\n")
         sk.append(propertyCode())
         return sk.toString()
     }
@@ -140,21 +141,19 @@ class InputFactory(val function: Func, val query: Query) {
         TODO()
     }
 
-    private fun uToSketch(phi: U): String = TODO("We may end up just representing phi as a string in this file")
-
-    private fun obtainedPropertyCode(phi: U): String {
-        return "void obtained_property($argsDefn, ref boolean out) {\n\t${uToSketch(phi)}\n}\n\n"
+    private fun obtainedPropertyCode(phi: String): String {
+        return "void obtained_property($argsDefn, ref boolean out) {\n\tout = ${phi}\n}\n\n"
     }
 
-    private fun prevPropertyCode(i: Int, phi: U): String {
-        return "void prev_property_$i($argsDefn, ref boolean out) {\n\t${uToSketch(phi)}\n}\n\n"
+    private fun prevPropertyCode(i: Int, phi: String): String {
+        return "void prev_property_$i($argsDefn, ref boolean out) {\n\tout = ${phi}\n}\n\n"
     }
 
-    private fun propertyConjCode(phiList: List<U>): String {
+    private fun propertyConjCode(phiList: List<String>): String {
         val sb = StringBuilder()
         phiList.forEachIndexed { i, phi -> sb.append("${prevPropertyCode(i, phi)}\n") }
 
-        val block = mutableListOf("void property_conj($argsDefn, ref boolean out) {\n")
+        val block = mutableListOf("void property_conj($argsDefn, ref boolean out) {")
         for (i in phiList.indices) {
             block.add("boolean out_$i;")
             block.add("prev_property_$i($argsCall, out_$i);")
@@ -168,15 +167,25 @@ class InputFactory(val function: Func, val query: Query) {
         return sb.toString()
     }
 
-    val getExample by lazy {
-        val code = mutableListOf("int get_ex(int t, int i) {")
-        // TODO THIS KOTLIN FUNCTION MUST BE CALLED IN PRECISION INPUT, OUTSIDE OF THE PRECISION CODE SINCE ITS TOP LEVEL FN DECL
-        //  get_ex(t, i) will return the i'th argument of the t'th example. based on t, pick an input tuple and return
-        //  the value at the correct position
-        code.joinToString(separator="\n\t")
+    private val getExample by lazy {
+        val code = mutableListOf("// Returns the ith argument of the tth example.")
+        code.add("int get_ex(int t, int i) {")
+        function.posExamples.forEachIndexed { t, ex ->
+            ex.args.forEachIndexed { i, arg ->
+                code.add("if (t == $t && i == $i) { return ${argToDummy[arg]}; }")
+            }
+        }
+        code.joinToString(separator = "\n\t", postfix = "\n}\n")
     }
 
-    val dummyOutput by lazy { TODO("function that just switches between all output dummies") }
+    private val dummyOutput by lazy {
+        // TODO we can actually do everything in the query that's the same type as the output, even if not for this fn
+        val code = mutableListOf("generator int dummy_out() {")
+        code.add("int t = ??;")
+        outputDummies.forEachIndexed { i, v -> code.add("if (t == $i) { return $v; }") }
+        code.add("assert false;")
+        code.joinToString(separator = "\n\t", postfix = "\n}\n")
+    }
 
     fun negativeExample(): String {
         val code = mutableListOf("int t = ??;")
@@ -185,10 +194,10 @@ class InputFactory(val function: Func, val query: Query) {
             code.add("int ${paramToName(it)} = get_ex(t, $it);")
         }
         // Select an output which is not the real one
-        code.add("int o = dummyOutput();")
-        code.add("int real_out = get_ex(t, $numInputs)")
-        code.add("assert o != real_out")
-        return code.joinToString(separator = "\n\t", postfix="\n")
+        code.add("int o = dummy_out();")
+        code.add("int real_out = get_ex(t, $numInputs);")
+        code.add("assert o != real_out;")
+        return code.joinToString(separator = "\n\t", postfix = "\n")
     }
 
     private fun precisionCode(): String {
@@ -201,33 +210,35 @@ class InputFactory(val function: Func, val query: Query) {
         code += negativeExample()
         // Previous property is true on our counterexample
         code += "boolean out_1;"
-        code += "obtained_property($argsCall,out_1);"
+        code += "obtained_property($argsCall, out_1);"
         code += "assert out_1;\n"
         // Our counterexample is new, that is, no prev phis reject it
         code += "boolean out_2;"
-        code += "property_conj($argsCall,out_2);"
+        code += "property_conj($argsCall, out_2);"
         code += "assert out_2;\n"
         // We have a new property that rejects it, so it is strictly more precise
         code += "boolean out_3;"
-        code += "property($argsCall,out_3);"
+        code += "property($argsCall, out_3);"
         code += "assert !out_3;"
-        return code.joinToString(separator = "\n\t", postfix = "}\n")
+        return code.joinToString(separator = "\n\t", postfix = "\n}\n")
     }
 
     fun precisionInput(
-        phi: U,
-        phiList: List<U>,
-        pos: Examples,
-        negMust: Examples,
+        phi: String,
+        phiList: List<String>,
         negMay: Examples,
         lams: Lambdas
     ): String {
         val sk = StringBuilder()
         sk.append(setup)
         sk.append(uGrammar)
+        sk.append(getExample)
+        sk.append(dummyOutput)
         sk.append(lamFunctions(lams))
+        sk.append("// -------------------- Begin examples ------------------------\n")
         sk.append(posExamples())
         sk.append(negExamplesSynth(negMay))
+        sk.append("// -------------------- End examples ------------------------\n\n")
         sk.append(propertyCode())
         sk.append(obtainedPropertyCode(phi))
         sk.append(propertyConjCode(phiList))
@@ -241,20 +252,20 @@ class InputFactory(val function: Func, val query: Query) {
     private val uGrammar by lazy {
         // I guess we don't need &&,|| since || is part of propertygen and && is built
         // into synthall. and we don't need not, since each compare has a not
-        val sb = StringBuilder()
+        val sb = StringBuilder("// -------------------- Grammar of properties ------------------------\n")
 
         // The toplevel predicate non-terminal
         val uGen = mutableListOf("generator boolean U_gen($argsDefn, int n) {")
         uGen.add("if (n > 0) {")
-        uGen.add("\tint e1 = E_gen($argsCall, n - 1);")
-        uGen.add("\tint e2 = E_gen($argsCall, n - 1);")
-        uGen.add("\treturn compare(e1, e2, n - 1);")
+        uGen.add("\tint e1 = U_gen_expr($argsCall, n - 1);")
+        uGen.add("\tint e2 = U_gen_expr($argsCall, n - 1);")
+        uGen.add("\treturn U_gen_cmp(e1, e2, n - 1);")
         uGen.add("}")
         uGen.add("assert false;")
         sb.append(uGen.joinToString(separator = "\n\t"))
         sb.append("\n}\n")
 
-        val compareGen = mutableListOf("generator boolean compare(int x, int y, int n) {")
+        val compareGen = mutableListOf("generator boolean U_gen_cmp(int x, int y, int n) {")
         compareGen.add("if (n > 0) {")
         compareGen.add("\tint t = ??;")
         compareGen.add("\tif (t == 0) { return x == y; }")
@@ -269,7 +280,7 @@ class InputFactory(val function: Func, val query: Query) {
         sb.append("\n}\n")
 
         // Integer expressions
-        val eGen = mutableListOf("generator int E_gen($argsDefn, int n) {")
+        val eGen = mutableListOf("generator int U_gen_expr($argsDefn, int n) {")
         eGen.add("if (n > 0) {")
         eGen.add("\tint t = ??;")
         eGen.add("\tif (t == 0) { return 0; }")
@@ -277,15 +288,15 @@ class InputFactory(val function: Func, val query: Query) {
         paramsWithLen.forEachIndexed { tOffset, param ->
             eGen.add("\tif (t == ${tOffset + 2}) { return length(${if (param == numInputs) "o" else "x$param"}); }")
         }
-        eGen.add("\tint e1 = E_gen($argsCall, n - 1);")
-        eGen.add("\tint e2 = E_gen($argsCall, n - 1);")
-        eGen.add("\treturn op(e1, e2, n - 1);")
+        eGen.add("\tint e1 = U_gen_expr($argsCall, n - 1);")
+        eGen.add("\tint e2 = U_gen_expr($argsCall, n - 1);")
+        eGen.add("\treturn U_gen_op(e1, e2, n - 1);")
         eGen.add("}")
         eGen.add("assert false;")
         sb.append(eGen.joinToString(separator = "\n\t"))
         sb.append("\n}\n")
 
-        val opGen = mutableListOf("generator int op(int x, int y, int n) {")
+        val opGen = mutableListOf("generator int U_gen_op(int x, int y, int n) {")
         opGen.add("if (n > 0) {")
         opGen.add("\tint t = ??;")
         opGen.add("\tif (t == 0) { return x + y; }")
@@ -296,7 +307,7 @@ class InputFactory(val function: Func, val query: Query) {
         sb.append(opGen.joinToString(separator = "\n\t"))
         sb.append("\n}\n")
 
-        sb.append("\n")
+        sb.append("// -------------------- End grammar of properties ------------------------\n\n")
         sb.toString()
     }
 

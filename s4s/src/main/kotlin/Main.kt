@@ -1,6 +1,10 @@
 import bottomup.BottomUp
 import sketchral.InputFactory
+import sketchral.OutputParser
 import util.*
+import java.io.File
+import java.io.IOException
+import java.util.concurrent.TimeUnit
 
 fun bottomUpTests() {
     val bu = BottomUp(query)
@@ -12,17 +16,49 @@ fun bottomUpTests() {
     println("Found ${bu.enumerate(dupFunc, 6)}")
 }
 
+fun writeToTmp(content: String) = File("tmp.sk").printWriter().use { out -> out.println(content) }
+
+fun callSketch(input: String): String {
+    writeToTmp(input)
+    return ("sketch tmp.sk -V 5 --slv-nativeints --bnd-inline-amnt 5".runCommand())
+        ?: throw Exception("I'm sad")
+}
+
 fun main(args: Array<String>) {
 //    bottomUpTests()
     val func = dupFunc
     val ig = InputFactory(func, query)
-    println(ig.synthInput(listOf(), mapOf()))
+    val synth = callSketch(ig.synthInput(listOf(), mapOf()))
+    val phi = OutputParser(synth).parseProperty()
+    println("Initial synthesized property: $phi")
+    val precision = callSketch(ig.precisionInput(phi, listOf(), listOf(), mapOf()))
+    val newPhi = OutputParser(precision).parseProperty()
+    println("Property with increased precision: $newPhi")
 
 //    val input = generateSequence(::readLine).joinToString("\n")
 //    val jsonElement = Json.parseToJsonElement(input)
 //    val rawProgram = Json.decodeFromJsonElement<RawProgram>(jsonElement)
 //    val prettyJsonPrinter = Json { prettyPrint = true }
 //    println(prettyJsonPrinter.encodeToString(optimizedProgram))
+}
+
+fun String.runCommand(
+    workingDir: File = File(System.getProperty("user.dir"))
+): String? {
+    try {
+        val parts = this.split("\\s".toRegex())
+        val proc = ProcessBuilder(*parts.toTypedArray())
+            .directory(workingDir)
+            .redirectOutput(ProcessBuilder.Redirect.PIPE)
+            .redirectError(ProcessBuilder.Redirect.PIPE)
+            .start()
+
+        proc.waitFor(60, TimeUnit.MINUTES)
+        return proc.inputStream.bufferedReader().readText()
+    } catch (e: IOException) {
+        e.printStackTrace()
+        return null
+    }
 }
 
 val query by lazy {
