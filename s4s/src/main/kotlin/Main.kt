@@ -1,6 +1,7 @@
 import bottomup.BottomUp
 import sketchral.InputFactory
 import sketchral.OutputParser
+import sketchral.withNegEx
 import util.*
 import java.io.File
 import java.io.IOException
@@ -26,14 +27,21 @@ fun callSketch(input: String): String {
 
 fun main(args: Array<String>) {
 //    bottomUpTests()
-    val func = dupFunc
-    val ig = InputFactory(func, query)
-    val synth = callSketch(ig.synthInput(listOf(), mapOf()))
-    val phi = OutputParser(synth).parseProperty()
+    val func = addFunc
+    var ifac = InputFactory(func, query)
+    val synth = callSketch(ifac.synthInput(listOf(), mapOf()))
+    val phi = OutputParser(synth, ifac).parseProperty()
     println("Initial synthesized property: $phi")
-    val precision = callSketch(ig.precisionInput(phi, listOf(), listOf(), mapOf()))
-    val newPhi = OutputParser(precision).parseProperty()
+
+    val precision = callSketch(ifac.precisionInput(phi, listOf(), listOf(), mapOf()))
+    val op = OutputParser(precision, ifac)
+    val newPhi = op.parseProperty()
     println("Property with increased precision: $newPhi")
+//    ifac = ifac.withNegEx(op.parseNegExPrecision())
+    val morePrecision = callSketch(ifac.precisionInput(newPhi, listOf(), listOf(), mapOf()))
+//    println(morePrecision)
+    val newerPhi = OutputParser(morePrecision, ifac).parseProperty()
+    println("Property with increased increased precision: $newerPhi")
 
 //    val input = generateSequence(::readLine).joinToString("\n")
 //    val jsonElement = Json.parseToJsonElement(input)
@@ -92,7 +100,7 @@ val addFunc by lazy {
     posExamplesAdd.add(Example(listOf(mutableListOf<Int>(), 3), listOf(3)))
 
     val negExamplesAdd = mutableListOf<Example>()
-    negExamplesAdd.add(Example(listOf(mutableListOf(1, 2), 3), listOf(1, 2, 3, 4)))
+//    negExamplesAdd.add(Example(listOf(mutableListOf(1, 2), 3), listOf(1, 2, 3, 4)))
 
     Func(::add, t, posExamplesAdd, negExamplesAdd)
 }
@@ -107,7 +115,7 @@ val addAllFunc by lazy {
     posExamplesAddAll.add(Example(listOf(mutableListOf(1, 2, 3), listOf(5, 6, 7, 8)), listOf(1, 2, 3, 5, 6, 7, 8)))
 
     val negExamplesAddAll = mutableListOf<Example>()
-    negExamplesAddAll.add(Example(listOf(mutableListOf(1, 2), listOf(3)), listOf(1, 2, 3, 4)))
+//    negExamplesAddAll.add(Example(listOf(mutableListOf(1, 2), listOf(3)), listOf(1, 2, 3, 4)))
 
     Func(::addAll, t, posExamplesAddAll, negExamplesAddAll)
 }
@@ -124,6 +132,6 @@ val dupFunc by lazy {
     posExamplesDup.add(Example(listOf(listOf(1, 2, 3)), listOf(1, 1, 2, 2, 3, 3)))
 
     val negExamplesDup = mutableListOf<Example>()
-    negExamplesDup.add(Example(listOf(listOf(1, 2)), listOf(1, 2)))
+//    negExamplesDup.add(Example(listOf(listOf(1, 2)), listOf(1, 2)))
     Func(::dup, t, posExamplesDup, negExamplesDup)
 }

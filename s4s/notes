@@ -179,33 +179,25 @@ private fun ruleToCode(rule: Any): String {
 
 
 
+When removing allllll negative examples for dupquery, our first iteration with check precision yields
+Initial synthesized property: length(o) >= length(x0);
+Property with increased precision: (length(x0) + length(x0)) >= length(o);
+let's add another precision round
+Initial synthesized property: length(o) >= length(x0);
+Property with increased precision: (length(x0) + length(x0)) >= length(o);
+Property with increased increased precision: length(o) >= length(x0);
 
-EXAMPLE GENERATORS IN SPYRO LOOK LIKE:
+we need to && them together!
+we also need to build up the set of negative examples by parsing the ones we synthesize
 
-generator int int_gen() {
-    int t = ??;
-    if (t == 0) {
-        return ??(3);
-    }
-    return - 1 * ??(3);
-}
-generator ArrayList ArrayList_gen() {
-    int t = ??;
-    if (t == 0) {
-        ArrayList var_0;
-        newArrayList(var_0);
-        return var_0;
-    }
-    ArrayList var_ArrayList_0 = ArrayList_gen();
-    int var_int_0 = int_gen();
-        ArrayList var_1;
-        add(var_ArrayList_0,var_int_0,var_1);
-    return var_1;
-}
-generator boolean boolean_gen() {
-    int t = ??;
-    if (t == 0) {
-        return true;
-    }
-    return false;
-}
+implemented parsing negative examples and adding to the set. now, we get
+Initial synthesized property: length(o) >= length(x0);
+Property with increased precision: (length(x0) + length(x0)) <= length(o);
+Property with increased increased precision: (length(o) - length(x0)) == length(x0);
+yay!
+
+TODO try doing this with all examples and see how it improves!
+
+
+current bug: we get unsat for addFunc with no precision updating, when we should be able to increase precision even
+with no passed in counter examples by pairing [], 3 with [1,2,3]

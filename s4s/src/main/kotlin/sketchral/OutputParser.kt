@@ -1,14 +1,21 @@
 package sketchral
 
 import util.Example
-import util.U
+import util.Func
 
-class OutputParser(val output: String) {
+class OutputParser(val output: String, val inputFactory: InputFactory) {
+    private val numInputs = inputFactory.function.type.inputs.size
+    private fun paramToName(param: Int) = if (param == numInputs) "o" else "x$param"
+
+    private fun blockOfSignature(sig: String): List<String> {
+        var txt = output.substringAfterLast("$sig (")
+        txt = txt.substringAfter('{')
+        txt = txt.substringBefore('}')
+        return txt.split(';').map { it.trim() }
+    }
+
     fun parseProperty(): String {
-        var left = output.substringAfterLast("void property (")
-        left = left.substringAfter('{')
-        left = left.substringBefore('}')
-        val lines = left.split(';').map { it.trim() }
+        val lines = blockOfSignature("void property")
         val lenStoreToName = lines.filter { "length" in it }.associate {
             var line = it.substringAfter('(')  // "parameter, variable_len_stored_in)"
             val variable = line.substringBefore(',')
@@ -30,7 +37,14 @@ class OutputParser(val output: String) {
     }
 
     fun parseNegExPrecision(): Example {
-        TODO()
+        val lines = blockOfSignature("void negative_example")
+        val line = lines.first { "get_ex" in it }.substringAfter('(')
+        val t = line.substringBefore(',').toInt()
+        val outDummy = lines.find{ "o =" in it}?.substringAfter("o =")?.trim()?.toInt() ?:throw Exception("I'm sad")
+        return Example(
+            inputFactory.function.posExamples[t].inputs,
+            inputFactory.dummyToArg[outDummy]!!
+        )
     }
 
     fun parseMaxsat(neg_may: List<Example>): Pair<List<Example>, List<Example>> {

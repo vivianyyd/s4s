@@ -20,9 +20,11 @@ data class Func(
     val type: Type,
     val posExamples: List<Example>,
     val negExamples: List<Example>,  // must still be valid types TODO testing: check if we can get expressive examples just with the same inputs but diff outputs. or do the inputs need to be diff
-){
+) {
     val examples = posExamples + negExamples
     lateinit var argsWithUndefinedLength: Set<Int>
+
+    fun withNegExample(neg: Example) = Func(f, type, posExamples, negExamples + listOf(neg))
 }
 
 data class Query(
@@ -30,8 +32,9 @@ data class Query(
     val uImpl: UPrimImpl
 ) {
     val lens: Map<Any, Int>
+
     init {
-        functions.forEach{
+        functions.forEach {
             assert(checkFn(it.f, it.type))
             assert(it.examples.all { ex -> checkEx(ex, it.type) })
         }
@@ -53,6 +56,8 @@ data class Query(
             it.argsWithUndefinedLength = undefLen
         }
     }
+
+    fun replace(oldF: Func, newF: Func) = Query(functions.filter { it != oldF } + listOf(newF), uImpl)
 }
 
 fun checkEx(example: Example, type: Type): Boolean {

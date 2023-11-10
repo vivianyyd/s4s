@@ -5,11 +5,17 @@ import util.Func
 import util.Query
 import util.U
 
+fun InputFactory.withNegEx(neg: Example): InputFactory {
+    val newFunc = function.withNegExample(neg)
+    return InputFactory(newFunc, query.replace(function, newFunc))
+}
+
 class InputFactory(val function: Func, val query: Query) {
     private val numAtom = 1  // TODO add flag later
     private val minimizeTerms = false  // TODO add commandline flag later
     private val numInputs = function.type.inputs.size
     private val argToDummy = mutableMapOf<Any, Int>()
+    val dummyToArg = mutableMapOf<Int, Any>()
     private val outputDummies: Set<Int>
     private val paramsWithLen =
         (0..numInputs).filter { (if (it == numInputs) -1 else it) !in function.argsWithUndefinedLength }
@@ -19,11 +25,13 @@ class InputFactory(val function: Func, val query: Query) {
         val typeList = function.type.inputs + listOf(function.type.output)
         function.examples.flatMap { (it.inputs + listOf(it.output)) }.toSet().forEachIndexed { i, arg ->
             argToDummy[arg] = i
+            dummyToArg[i] = arg
         }
         outputDummies = function.examples.mapNotNull { argToDummy[it.output] }.toSet()
     }
 
     private fun paramToName(param: Int) = if (param == numInputs) "o" else "x$param"
+    private val argsRefDefn = (0..numInputs).joinToString(separator = ", ") { "ref int ${paramToName(it)}" }
     private val argsDefn = (0..numInputs).joinToString(separator = ", ") { "int ${paramToName(it)}" }
     private val argsCall = (0..numInputs).joinToString(separator = ", ") { paramToName(it) }
 
@@ -175,11 +183,13 @@ class InputFactory(val function: Func, val query: Query) {
                 code.add("if (t == $t && i == $i) { return ${argToDummy[arg]}; }")
             }
         }
+        code.add("assert false;")
         code.joinToString(separator = "\n\t", postfix = "\n}\n")
     }
 
     private val dummyOutput by lazy {
-        // TODO we can actually do everything in the query that's the same type as the output, even if not for this fn
+        // TODO we can actually do everything in the query that's the same type as the output. that includes inputs of
+        //  the correct type and inside examples for other functions
         val code = mutableListOf("generator int dummy_out() {")
         code.add("int t = ??;")
         outputDummies.forEachIndexed { i, v -> code.add("if (t == $i) { return $v; }") }
@@ -187,17 +197,24 @@ class InputFactory(val function: Func, val query: Query) {
         code.joinToString(separator = "\n\t", postfix = "\n}\n")
     }
 
-    fun negativeExample(): String {
-        val code = mutableListOf("int t = ??;")
+    private val genNegativeExample by lazy {
+        val code = mutableListOf("generator void negative_example_gen($argsRefDefn){")
+        code.add("int t = ??;")
         // Select a preexisting combination of inputs
         (0 until numInputs).forEach {
-            code.add("int ${paramToName(it)} = get_ex(t, $it);")
+            code.add("${paramToName(it)} = get_ex(t, $it);")
         }
         // Select an output which is not the real one
-        code.add("int o = dummy_out();")
+        code.add("o = dummy_out();")
         code.add("int real_out = get_ex(t, $numInputs);")
         code.add("assert o != real_out;")
-        return code.joinToString(separator = "\n\t", postfix = "\n")
+        code.joinToString(separator = "\n\t", postfix = "\n}\n")
+    }
+
+    private val negativeExample by lazy {
+        val code = mutableListOf("void negative_example($argsRefDefn){")
+        code.add("negative_example_gen($argsCall);")
+        code.joinToString(separator = "\n\t", postfix = "\n}\n")
     }
 
     private fun precisionCode(): String {
@@ -207,7 +224,8 @@ class InputFactory(val function: Func, val query: Query) {
            correct type. As a result, they need to do checkSoundness after this step since they might synth a
            "counterexample" that's actually positive, resulting in an unsound property. But we just directly synthesize
            an example which is certainly negative, so we can skip that step! */
-        code += negativeExample()
+        (0 ..numInputs).forEach { code.add("int ${paramToName(it)} = 0;") }
+        code.add("negative_example($argsCall);")
         // Previous property is true on our counterexample
         code += "boolean out_1;"
         code += "obtained_property($argsCall, out_1);"
@@ -232,6 +250,8 @@ class InputFactory(val function: Func, val query: Query) {
         val sk = StringBuilder()
         sk.append(setup)
         sk.append(uGrammar)
+        sk.append(genNegativeExample)
+        sk.append(negativeExample)
         sk.append(getExample)
         sk.append(dummyOutput)
         sk.append(lamFunctions(lams))

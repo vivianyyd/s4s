@@ -43,10 +43,10 @@ class PropertySynthesizer(function: Func, query: Query) {
         val code = inputFactory.synthInput(negMay, lams)
         val output = callSketch(code)
         return if (output != null) {
-            val outParser = OutputParser(output)
+//            val outParser = OutputParser(output, function)
             val phi = ULiteral(123456) // TODO outParser.parseProperty()
-            val lam = outParser.getLams()
-            Pair(phi, lam)
+//            val lam = outParser.getLams()
+            Pair(phi, mapOf())
         } else Pair(null, null)
     }
 
@@ -69,11 +69,12 @@ class PropertySynthesizer(function: Func, query: Query) {
         val code = inputFactory.maxsatInput(pos, negMust, negMay, lams)
         val output = callSketch(code)
         return if (output != null) {
-            val outParser = OutputParser(output)
-            val (newNegMay, delta) = outParser.parseMaxsat(negMay)
+//            val outParser = OutputParser(output)
+//            val (newNegMay, delta) = outParser.parseMaxsat(negMay)
             val phi = ULiteral(123456) // TODO outParser.parseProperty()
-            val lam = outParser.getLams()
-            Pair(Pair(newNegMay, delta), Pair(phi, lam))
+//            val lam = outParser.getLams()
+//            Pair(Pair(newNegMay, delta), Pair(phi, lam))
+            Pair(Pair(listOf(), listOf()), Pair(phi, mapOf()))
         } else {
             if (phiInit == null) throw Exception("MaxSynth failed")
             val (newNegMay, delta) = Pair(listOf<Example>(), negMay)
@@ -85,10 +86,11 @@ class PropertySynthesizer(function: Func, query: Query) {
         val code = inputFactory.soundnessInput(phi, lams)
         val output = callSketch(code)
         return if (output != null) {
-            val outParser = OutputParser(output)
-            val posEx = outParser.parsePosEx()
-            val lam = outParser.getLams()
-            Triple(posEx, lam, false)
+//            val outParser = OutputParser(output)
+//            val posEx = outParser.parsePosEx()
+//            val lam = outParser.getLams()
+//            Triple(posEx, lam, false)
+            Triple (null, null, false)
         } else {
             Triple(null, null, true /* TODO elapsed_time >= timeout */)
         }
@@ -103,11 +105,12 @@ class PropertySynthesizer(function: Func, query: Query) {
         val code = inputFactory.precisionInput(phi, phiList, negMay, lams)
         val output = callSketch(code)
         if (output != null) {
-            val outParser = OutputParser(output)
-            val negEx = outParser.parseNegExPrecision()
-            val newPhi = ULiteral(123456) // TODO outParser.parseProperty()
-            val lam = outParser.getLams()
-            return Triple(negEx, newPhi, lam)
+//            val outParser = OutputParser(output)
+//            val negEx = outParser.parseNegExPrecision()
+//            val newPhi = ULiteral(123456) // TODO outParser.parseProperty()
+//            val lam = outParser.getLams()
+//            return Triple(negEx, newPhi, lam)
+            return Triple(null, null, null)
         } else {
             return Triple(null, null, null)
         }
