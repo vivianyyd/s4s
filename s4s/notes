@@ -187,7 +187,7 @@ Initial synthesized property: length(o) >= length(x0);
 Property with increased precision: (length(x0) + length(x0)) >= length(o);
 Property with increased increased precision: length(o) >= length(x0);
 
-we need to && them together!
+we need to && them together! (turns out no need)
 we also need to build up the set of negative examples by parsing the ones we synthesize
 
 implemented parsing negative examples and adding to the set. now, we get
