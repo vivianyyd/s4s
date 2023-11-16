@@ -3,6 +3,11 @@ package sketchral
 import util.Example
 import util.Func
 
+sealed class Result {
+    class Ok(val value: String) : Result()
+    object Error : Result()
+}
+
 class OutputParser(val output: String, val inputFactory: InputFactory) {
     private val numInputs = inputFactory.function.type.inputs.size
     private fun paramToName(param: Int) = if (param == numInputs) "o" else "x$param"
@@ -14,7 +19,7 @@ class OutputParser(val output: String, val inputFactory: InputFactory) {
         return txt.split(';').map { it.trim() }
     }
 
-    fun parseProperty(): String {
+    fun parseProperty(): Result {
         val lines = blockOfSignature("void property")
         val lenStoreToName = lines.filter { "length" in it }.associate {
             var line = it.substringAfter('(')  // "parameter, variable_len_stored_in)"
@@ -22,10 +27,10 @@ class OutputParser(val output: String, val inputFactory: InputFactory) {
             line = line.substringAfter(',')
             val storedLen = line.substringBefore(')').trim()
             storedLen to variable
-        }.toSortedMap(reverseOrder())  // natural order puts short strings first, but we want to replace substrings after
-        var property = lines.find { "out =" in it }?.substringAfter("out =")?.trim() ?: throw Exception("I'm sad")
+        }.toSortedMap(reverseOrder())  // natural order puts short strings first, but we want to replace substrings last
+        var property = lines.find { "out =" in it }?.substringAfter("out =")?.trim() ?: return Result.Error
         lenStoreToName.forEach { (lenStore, name) -> property = property.replace(lenStore, "length($name)")}
-        return "$property;"
+        return Result.Ok("$property;")
     }
 
     fun getLams(): Lambdas {

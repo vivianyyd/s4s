@@ -1,6 +1,7 @@
 import bottomup.BottomUp
 import sketchral.InputFactory
 import sketchral.OutputParser
+import sketchral.Result
 import sketchral.withNegEx
 import util.*
 import java.io.File
@@ -27,21 +28,25 @@ fun callSketch(input: String): String {
 
 fun main(args: Array<String>) {
 //    bottomUpTests()
-    val func = addFunc
+    val func = addAllFunc
     var ifac = InputFactory(func, query)
     val synth = callSketch(ifac.synthInput(listOf(), mapOf()))
-    val phi = OutputParser(synth, ifac).parseProperty()
+    var res = OutputParser(synth, ifac).parseProperty()
+    if (res !is Result.Ok) return;
+    var phi = res.value
     println("Initial synthesized property: $phi")
 
-    val precision = callSketch(ifac.precisionInput(phi, listOf(), listOf(), mapOf()))
-    val op = OutputParser(precision, ifac)
-    val newPhi = op.parseProperty()
-    println("Property with increased precision: $newPhi")
-//    ifac = ifac.withNegEx(op.parseNegExPrecision())
-    val morePrecision = callSketch(ifac.precisionInput(newPhi, listOf(), listOf(), mapOf()))
-//    println(morePrecision)
-    val newerPhi = OutputParser(morePrecision, ifac).parseProperty()
-    println("Property with increased increased precision: $newerPhi")
+    while(true){
+        val precision = callSketch(ifac.precisionInput(phi, listOf(), listOf(), mapOf()))
+        val op = OutputParser(precision, ifac)
+        val result = op.parseProperty()
+        if (result is Result.Ok) {
+            phi = result.value
+            println("Property with increased precision: $phi")
+            ifac = ifac.withNegEx(op.parseNegExPrecision())
+        }
+        else break
+    }
 
 //    val input = generateSequence(::readLine).joinToString("\n")
 //    val jsonElement = Json.parseToJsonElement(input)
