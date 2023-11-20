@@ -21,6 +21,10 @@ class InputFactory(val function: Func, val query: Query) {
         (0..numInputs).filter { (if (it == numInputs) -1 else it) !in function.argsWithUndefinedLength }
 
     init {
+            print("outputs for posterity: ")
+    for (example in function.posExamples) 
+    {
+        println(example)}  
         // Make dummy values for examples
         val typeList = function.type.inputs + listOf(function.type.output)
         function.examples.flatMap { (it.inputs + listOf(it.output)) }.toSet().forEachIndexed { i, arg ->
@@ -28,6 +32,7 @@ class InputFactory(val function: Func, val query: Query) {
             dummyToArg[i] = arg
         }
         outputDummies = function.examples.mapNotNull { argToDummy[it.output] }.toSet()
+
     }
 
     private fun paramToName(param: Int) = if (param == numInputs) "o" else "x$param"

@@ -28,7 +28,7 @@ fun callSketch(input: String): String {
 
 fun main(args: Array<String>) {
 //    bottomUpTests()
-    val func = addAllFunc
+    val func = delFirstFunc
     var ifac = InputFactory(func, query)
     val synth = callSketch(ifac.synthInput(listOf(), mapOf()))
     var res = OutputParser(synth, ifac).parseProperty()
@@ -75,7 +75,7 @@ fun String.runCommand(
 }
 
 val query by lazy {
-    Query(listOf(addFunc, addAllFunc, dupFunc), ListImpl)
+    Query(listOf(addFunc, addAllFunc, dupFunc,delAllFunc,delFirstFunc), ListImpl)
 }
 
 object ListImpl : UPrimImpl {
@@ -97,6 +97,13 @@ fun addAll(x: MutableList<Int>, y: List<Int>): List<Int> {
     return x
 }
 
+fun delAll(x: MutableList<Int>): List<Int> {
+    return listOf<Int>()
+}
+fun del(x: MutableList<Int>): List<Int> {
+    x.removeAt(0)
+    return x
+}
 val addFunc by lazy {
     val t = Type(listOf(MutableList::class, Int::class), List::class)
 
@@ -140,3 +147,33 @@ val dupFunc by lazy {
 //    negExamplesDup.add(Example(listOf(listOf(1, 2)), listOf(1, 2)))
     Func(::dup, t, posExamplesDup, negExamplesDup)
 }
+val delAllFunc by lazy {
+    val t = Type(listOf(MutableList::class), List::class)
+
+    val posExamplesAdd = mutableListOf<Example>()
+    posExamplesAdd.add(Example(listOf(mutableListOf(1, 2)), listOf<Int>()))
+    posExamplesAdd.add(Example(listOf(mutableListOf<Int>()), listOf<Int>()))
+    posExamplesAdd.add(Example(listOf(mutableListOf<Int>(0)), listOf<Int>())) 
+
+    val negExamplesAdd = mutableListOf<Example>()
+    negExamplesAdd.add(Example(listOf(mutableListOf(1, 2)), listOf(3)))
+    negExamplesAdd.add(Example(listOf(mutableListOf(1, 2,4,5)), listOf(3,3)))
+    Func(::delAll, t, posExamplesAdd, negExamplesAdd)
+}
+val delFirstFunc by lazy {
+    val t = Type(listOf(MutableList::class), List::class)
+
+    val posExamplesAdd = mutableListOf<Example>()
+    posExamplesAdd.add(Example(listOf(mutableListOf(1, 2)), listOf(2)))  
+    //posExamplesAdd.add(Example(listOf(mutableListOf(1, 2)), listOf(2)))
+    val negExamplesAdd = mutableListOf<Example>()
+    //negExamplesAdd.add(Example(listOf(mutableListOf(1, 2)), listOf(3)))
+    //negExamplesAdd.add(Example(listOf(mutableListOf(1, 2,4,5)), listOf(3,3)))
+    Func(::del, t, posExamplesAdd, negExamplesAdd)
+}
+/*spyro list functions: 
+we seem to already have append and stutter
+append, deleteAll, deleteFirst, drop, elem, elemindex, ith, min, replicate
+reverse, reverse2, snoc, stutter, take
+
+*/
