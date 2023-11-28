@@ -21,7 +21,6 @@ class InputFactory(val function: Func, val query: Query) {
         (0..numInputs).filter { (if (it == numInputs) -1 else it) !in function.argsWithUndefinedLength }
 
     init {
-            print("outputs for posterity: ")
     for (example in function.posExamples) 
     {
         println(example)}  

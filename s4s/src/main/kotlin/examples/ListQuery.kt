@@ -8,10 +8,8 @@ import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit 
 
-/*val ListQuery:TestQuery(query:Query){
-    init{
-
-    }
+/*val lquery:TestQuery{
+    null
 }*/
 val listquery by lazy {
     Query(listOf(addFunc, addAllFunc, dupFunc,delAllFunc,delFirstFunc,dropFunc), ListImpl)

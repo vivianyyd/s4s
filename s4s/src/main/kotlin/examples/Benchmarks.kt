@@ -8,32 +8,40 @@ import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit 
 
-data class TestQuery(query:Query){
-    val map = mutableMapOf<String, Func>()
-    val path = "test"
-    init(query:Query){
-      
+data class TestQuery(val  functions:List<Func>, val names:List<String> , val query:Query){
+    val map: Map<String, Func>
+    val path = "."
+    init{
+      map = mutableMapOf<String, Func>()
+      for(i in 0..names.size){
+        map.put(names.get(i), functions.get(i))
+      }
     } 
-    fun runTest(func: Func,query:Query){}
-    /*{var ifac = InputFactory(func, ListQuery::listquery)
-    val synth = callSketch(ifac.synthInput(listOf(), mapOf()))
-    var res = OutputParser(synth, ifac).parseProperty()
-    if (res !is Result.Ok) return;
-    var phi = res.value
-  //////this is where we need to put in the redirect of output and send it to path
-    println("Initial synthesized property: $phi")
-
-    while(true){
-        val precision = callSketch(ifac.precisionInput(phi, listOf(), listOf(), mapOf()))
-        val op = OutputParser(precision, ifac)
-        val result = op.parseProperty()
-        if (result is Result.Ok) {
-            phi = result.value
-            println("Property with increased precision: $phi")
-            ifac = ifac.withNegEx(op.parseNegExPrecision())
+    fun runTest(){
+        for(key in map.keys){ 
+        var file: String = path+"/"+key+".txt"
+        var func = map.get(key)!!
+        var ifac = InputFactory(func, query)
+        val synth = callSketch(ifac.synthInput(listOf(), mapOf()))
+        var res = OutputParser(synth, ifac).parseProperty()
+        if (res !is Result.Ok) return;
+        var phi = res.value
+        //////this is where we need to put in the redirect of output and send it to path
+        File(file).writeText("Initial synthesized property: $phi")
+        while(true){
+            val precision = callSketch(ifac.precisionInput(phi, listOf(), listOf(), mapOf()))
+            val op = OutputParser(precision, ifac)
+            val result = op.parseProperty()
+            for(input in func.posExamples){
+                File(file).writeText("Example:     "+input)
+            }
+            if (result is Result.Ok) {
+                phi = result.value
+                File(file).writeText("Property with increased precision: $phi")
+                ifac = ifac.withNegEx(op.parseNegExPrecision())
+            }
+            else break
         }
-        else break
-    }
-    }
- */   
+        }
+    } 
 }
