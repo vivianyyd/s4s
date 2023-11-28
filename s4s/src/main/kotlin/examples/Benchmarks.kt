@@ -7,13 +7,19 @@ import util.*
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit 
+import java.nio.file.Files
+import java.nio.file.Paths
 
-data class TestQuery(val  functions:List<Func>, val names:List<String> , val query:Query){
+data class TestQuery(val  functions:List<Func>, val names:List<String> , val query:Query,val strpath:String){
     val map: Map<String, Func>
-    val path = "."
+    val path:String
     init{
+
+        path = strpath
+
+        Files.createDirectories(Paths.get(path))
       map = mutableMapOf<String, Func>()
-      for(i in 0..names.size){
+      for(i in 0..names.size-1){
         map.put(names.get(i), functions.get(i))
       }
     } 

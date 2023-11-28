@@ -28,33 +28,7 @@ fun callSketch(input: String): String {
 
 //val tests = listOf(ListQuery(), ArithmeticQuery)
 fun main(args: Array<String>) {
-//    bottomUpTests()
-    val func = addAllFunc
-    var ifac = InputFactory(func, listquery)
-    val synth = callSketch(ifac.synthInput(listOf(), mapOf()))
-    var res = OutputParser(synth, ifac).parseProperty()
-    if (res !is Result.Ok) return;
-    var phi = res.value
-    println("Initial synthesized property: $phi")
-
-    while(true){
-        val precision = callSketch(ifac.precisionInput(phi, listOf(), listOf(), mapOf()))
-        val op = OutputParser(precision, ifac)
-        val result = op.parseProperty()
-        if (result is Result.Ok) {
-            phi = result.value
-            println("Property with increased precision: $phi")
-            ifac = ifac.withNegEx(op.parseNegExPrecision())
-        }
-        else break
-    }
-
-
-//    val input = generateSequence(::readLine).joinToString("\n")
-//    val jsonElement = Json.parseToJsonElement(input)
-//    val rawProgram = Json.decodeFromJsonElement<RawProgram>(jsonElement)
-//    val prettyJsonPrinter = Json { prettyPrint = true }
-//    println(prettyJsonPrinter.encodeToString(optimizedProgram))
+    listTest.runTest()
 }
 
 fun String.runCommand( 

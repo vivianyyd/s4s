@@ -8,12 +8,8 @@ import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit 
 
-/*val lquery:TestQuery{
-    null
-}*/
-val listquery by lazy {
-    Query(listOf(addFunc, addAllFunc, dupFunc,delAllFunc,delFirstFunc,dropFunc), ListImpl)
-}
+
+
 val addEx by lazy{
     mutableListOf<Example>(
         Example(listOf(mutableListOf(1, 2), 3), listOf(1, 2, 3)), 
@@ -71,6 +67,14 @@ object ListImpl : UPrimImpl {
             is List<*> -> x.size
             else -> throw UnsupportedOperationException("Length is not implemented for $x")
         }
+}
+val funlist = listOf(addFunc, addAllFunc, dupFunc,delAllFunc,delFirstFunc,dropFunc)
+val namelist = listOf("add", "addAll", "dup", "delAll", "delFirst", "drop")
+val listquery by lazy {
+    Query(listOf(addFunc, addAllFunc, dupFunc,delAllFunc,delFirstFunc,dropFunc), ListImpl)
+}
+val listTest by lazy{
+    TestQuery(funlist,namelist,listquery, "./test_outputs/list/")
 }
 /*spyro list functions: 
 we seem to already have append and stutter
