@@ -53,14 +53,33 @@ val dropEx by lazy{
         Example(listOf(mutableListOf(1, 2, 3), 2), listOf(1,2))
     )
 }
-
+val replicateEx by lazy{
+    mutableListOf<Example>( 
+        Example(listOf(listOf(1, 2)), listOf(1,2)),
+        Example(listOf(listOf<Int>()), listOf<Int>())
+    )
+}
+val reverseEx by lazy{
+    mutableListOf<Example>( 
+        Example(listOf(listOf(1, 2)), listOf(2,1)),
+        Example(listOf(listOf<Int>()), listOf<Int>())
+    )
+}
+val snocEx by lazy{
+    mutableListOf<Example>( 
+        Example(listOf(mutableListOf(1, 2), 1), listOf(1,1,2)),
+        Example(listOf(mutableListOf<Int>(), 0), listOf(0))
+    )
+}
 val addFunc = Func(null,Type(listOf(MutableList::class, Int::class), List::class), addEx, mutableListOf<Example>())
 val addAllFunc = Func(null, Type(listOf(MutableList::class, List::class), List::class), addAllEx, mutableListOf<Example>())
 val dupFunc =  Func(null, Type(listOf(List::class), List::class), dupEx, mutableListOf<Example>())
 val delAllFunc = Func(null, Type(listOf(MutableList::class), List::class), delAllEx, mutableListOf<Example>())
 val delFirstFunc = Func(null, Type(listOf(MutableList::class), List::class), delFirstEx, mutableListOf<Example>())
 val dropFunc = Func(null, Type(listOf(MutableList::class, Int::class), List::class), dropEx,  mutableListOf<Example>())
-
+val replicateFunc = Func(null, Type(listOf(List::class), List::class), replicateEx,  mutableListOf<Example>())
+val reverseFunc = Func(null, Type(listOf(List::class), List::class), reverseEx,  mutableListOf<Example>())
+val snocFunc = Func(null, Type(listOf(MutableList::class, Int::class), List::class), snocEx,  mutableListOf<Example>())
 object ListImpl : UPrimImpl {
     override fun len(x: Any): Int =
         when (x) {
@@ -68,10 +87,10 @@ object ListImpl : UPrimImpl {
             else -> throw UnsupportedOperationException("Length is not implemented for $x")
         }
 }
-val funlist = listOf(addFunc, addAllFunc, dupFunc,delAllFunc,delFirstFunc,dropFunc)
-val namelist = listOf("add", "addAll", "dup", "delAll", "delFirst", "drop")
+val funlist = listOf(addFunc, addAllFunc, dupFunc,delAllFunc,delFirstFunc,dropFunc,replicateFunc, reverseFunc,snocFunc)
+val namelist = listOf("add", "addAll", "dup", "delAll", "delFirst", "drop", "replicate", "reverse","snoc")
 val listquery by lazy {
-    Query(listOf(addFunc, addAllFunc, dupFunc,delAllFunc,delFirstFunc,dropFunc), ListImpl)
+    Query(listOf(addFunc, addAllFunc, dupFunc,delAllFunc,delFirstFunc,dropFunc,replicateFunc, reverseFunc,snocFunc), ListImpl)
 }
 val listTest by lazy{
     TestQuery(funlist,namelist,listquery, "./test_outputs/list/")

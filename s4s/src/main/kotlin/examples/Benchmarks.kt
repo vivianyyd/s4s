@@ -33,17 +33,17 @@ data class TestQuery(val  functions:List<Func>, val names:List<String> , val que
         if (res !is Result.Ok) return;
         var phi = res.value
         //////this is where we need to put in the redirect of output and send it to path
-        File(file).writeText("Initial synthesized property: $phi")
+        File(file).writeText("\nInitial synthesized property: $phi")
         while(true){
             val precision = callSketch(ifac.precisionInput(phi, listOf(), listOf(), mapOf()))
             val op = OutputParser(precision, ifac)
             val result = op.parseProperty()
             for(input in func.posExamples){
-                File(file).writeText("Example:     "+input)
+                File(file).appendText("\nExample:     "+input)
             }
             if (result is Result.Ok) {
                 phi = result.value
-                File(file).writeText("Property with increased precision: $phi")
+                File(file).appendText("\nProperty with increased precision: $phi")
                 ifac = ifac.withNegEx(op.parseNegExPrecision())
             }
             else break
