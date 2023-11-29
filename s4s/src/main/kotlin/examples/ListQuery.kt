@@ -71,6 +71,22 @@ val snocEx by lazy{
         Example(listOf(mutableListOf<Int>(), 0), listOf(0))
     )
 }
+val maxEx by lazy{
+    mutableListOf<Example>( 
+        Example(listOf(listOf(1, 2), listOf(1)), listOf(1,2)),
+        Example(listOf(listOf<Int>(), listOf(0)), listOf(0)),
+        Example(listOf(listOf(1), listOf(1,2,4)), listOf(1,2,4)),
+        Example(listOf(listOf(3,2), listOf(1,2,4)), listOf(1,2,4)),
+        Example(listOf(listOf<Int>(), listOf<Int>()), listOf<Int>())
+    )
+}
+val max3Ex by lazy{
+    mutableListOf<Example>( 
+        Example(listOf(listOf(1, 2), listOf(1),listOf(1)), listOf(1,2)),
+        Example(listOf(listOf<Int>(), listOf(0),listOf(1,1)), listOf(1,1)),
+        Example(listOf(listOf(1), listOf(1,2,4), listOf(3,5)), listOf(1,2,4))
+    )
+}
 val addFunc = Func(null,Type(listOf(MutableList::class, Int::class), List::class), addEx, mutableListOf<Example>())
 val addAllFunc = Func(null, Type(listOf(MutableList::class, List::class), List::class), addAllEx, mutableListOf<Example>())
 val dupFunc =  Func(null, Type(listOf(List::class), List::class), dupEx, mutableListOf<Example>())
@@ -80,6 +96,9 @@ val dropFunc = Func(null, Type(listOf(MutableList::class, Int::class), List::cla
 val replicateFunc = Func(null, Type(listOf(List::class), List::class), replicateEx,  mutableListOf<Example>())
 val reverseFunc = Func(null, Type(listOf(List::class), List::class), reverseEx,  mutableListOf<Example>())
 val snocFunc = Func(null, Type(listOf(MutableList::class, Int::class), List::class), snocEx,  mutableListOf<Example>())
+val maxFunc = Func(null, Type(listOf(List::class, List::class), List::class), maxEx,  mutableListOf<Example>())
+val max3Func = Func(null, Type(listOf(List::class, List::class,List::class), List::class), max3Ex,  mutableListOf<Example>())
+
 object ListImpl : UPrimImpl {
     override fun len(x: Any): Int =
         when (x) {
@@ -87,17 +106,11 @@ object ListImpl : UPrimImpl {
             else -> throw UnsupportedOperationException("Length is not implemented for $x")
         }
 }
-val funlist = listOf(addFunc, addAllFunc, dupFunc,delAllFunc,delFirstFunc,dropFunc,replicateFunc, reverseFunc,snocFunc)
-val namelist = listOf("add", "addAll", "dup", "delAll", "delFirst", "drop", "replicate", "reverse","snoc")
+private val funlist = listOf(addFunc, addAllFunc, dupFunc,delAllFunc,delFirstFunc,dropFunc,maxFunc, max3Func,replicateFunc, reverseFunc,snocFunc)
+private val namelist = listOf("add", "addAll", "dup", "delAll", "delFirst", "drop", "max","max3","replicate", "reverse","snoc")
 val listquery by lazy {
-    Query(listOf(addFunc, addAllFunc, dupFunc,delAllFunc,delFirstFunc,dropFunc,replicateFunc, reverseFunc,snocFunc), ListImpl)
+    Query(funlist, ListImpl)
 }
 val listTest by lazy{
     TestQuery(funlist,namelist,listquery, "./test_outputs/list/")
 }
-/*spyro list functions: 
-we seem to already have append and stutter
-append, deleteAll, deleteFirst, drop, elem, elemindex, ith, min, replicate
-reverse, reverse2, snoc, stutter, take
-
-*/
