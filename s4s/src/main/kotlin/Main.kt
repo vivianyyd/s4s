@@ -29,6 +29,7 @@ fun callSketch(input: String): String {
 //val tests = listOf(ListQuery(), ArithmeticQuery)
 fun main(args: Array<String>) {
     listTest.runTest()
+    arithmeticTest.runTest()
 }
 
 fun String.runCommand( 

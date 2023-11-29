@@ -1,4 +1,4 @@
-/*import bottomup.BottomUp
+import bottomup.BottomUp
 import sketchral.InputFactory
 import sketchral.OutputParser
 import sketchral.Result
@@ -10,16 +10,34 @@ import java.util.concurrent.TimeUnit
 
 
 
-val addEx by lazy{
+private val sumEx by lazy{
     mutableListOf<Example>(
-        Example(listOf(mutableListOf(1, 2), 3), listOf(1, 2, 3)), 
-        Example(listOf(mutableListOf<Int>(), 3), listOf(3))
+        Example(listOf(1, 3), 4),
+        Example(listOf(0, 3), 3)
     )
 } 
-val sumFunc = Func(null,Type(listOf(MutableList::class, Int::class), List::class), sumEx, mutableListOf<Example>())
-val diffFunc = Func(null,Type(listOf(MutableList::class, Int::class), List::class), diffEx, mutableListOf<Example>())
-val mulFunc =Func(null,Type(listOf(MutableList::class, Int::class), List::class), mulEx, mutableListOf<Example>())
-val maxFunc = Func(null,Type(listOf(MutableList::class, Int::class), List::class), maxEx, mutableListOf<Example>())
+private val diffEx by lazy{
+    mutableListOf<Example>(
+        Example(listOf(1, 3), -2), 
+        Example(listOf(1, 0), 1)
+    )
+} 
+private val mulEx by lazy{
+    mutableListOf<Example>(
+        Example(listOf(2, 2), 4),
+        Example(listOf(1, 0), 0) 
+    )
+} 
+private val maxEx by lazy{
+    mutableListOf<Example>(
+        Example(listOf(2, 5), 5),
+        Example(listOf(3, 1), 3)
+    )
+} 
+private val sumFunc = Func(null,Type(listOf(Int::class, Int::class), List::class), sumEx, mutableListOf<Example>())
+private val diffFunc = Func(null,Type(listOf(Int::class, Int::class), List::class), diffEx, mutableListOf<Example>())
+private val mulFunc =Func(null,Type(listOf(Int::class, Int::class), List::class), mulEx, mutableListOf<Example>())
+private val maxFunc = Func(null,Type(listOf(Int::class, Int::class), List::class), maxEx, mutableListOf<Example>())
 object ArithImpl : UPrimImpl {
     override fun len(x: Any): Int =
         when (x) {
@@ -27,12 +45,11 @@ object ArithImpl : UPrimImpl {
             else -> throw UnsupportedOperationException("Length is not implemented for $x")
         }
 }
-private val funlist = listOf(addFunc, addAllFunc, dupFunc,delAllFunc,delFirstFunc,dropFunc,replicateFunc, reverseFunc,snocFunc)
-private val namelist = listOf("add", "addAll", "dup", "delAll", "delFirst", "drop", "replicate", "reverse","snoc")
+private val funlist = listOf(sumFunc,diffFunc, mulFunc,maxFunc)
+private val namelist = listOf("sum", "diff", "mul", "max")
 val arithmeticquery by lazy {
     Query(funlist, ArithImpl)
 }
 val arithmeticTest by lazy{
     TestQuery(funlist,namelist,arithmeticquery, "./test_outputs/arithmetic/")
 }
-*/

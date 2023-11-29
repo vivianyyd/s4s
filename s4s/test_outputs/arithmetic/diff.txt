@@ -1,0 +1,4 @@
+
+Initial synthesized property: length(x0) >= 1;
+Example:     Example(inputs=[1, 3], output=-2)
+Example:     Example(inputs=[1, 0], output=1)
