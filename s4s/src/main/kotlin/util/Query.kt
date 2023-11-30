@@ -16,7 +16,7 @@ data class Type(
 )
 
 data class Func(
-    val f: KFunction<Any>,
+    val f: KFunction<Any>?,
     val type: Type,
     val posExamples: List<Example>,
     val negExamples: List<Example>,  // must still be valid types TODO testing: check if we can get expressive examples just with the same inputs but diff outputs. or do the inputs need to be diff
@@ -70,7 +70,8 @@ fun checkEx(example: Example, type: Type): Boolean {
     return correctArity && correctTypes
 }
 
-fun checkFn(fn: KFunction<Any>, type: Type): Boolean {
+fun checkFn(fn: KFunction<Any>?, type: Type): Boolean {
+    if(fn == null) return true
     val correctReturnType = type.output == fn.returnType.classifier
     val correctArgTypes =
         type.inputs.zip(fn.parameters.map { p -> p.type.classifier }).all { (expected, actual) ->
