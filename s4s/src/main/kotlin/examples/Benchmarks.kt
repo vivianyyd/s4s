@@ -24,7 +24,8 @@ data class TestQuery(val  functions:List<Func>, val names:List<String> , val que
       }
     } 
     fun runTest(){
-        for(key in map.keys){ 
+        for(key in map.keys){
+            println(System.currentTimeMillis())
         var file: String = path+"/"+key+".txt"
         var func = map.get(key)!!
         var ifac = InputFactory(func, query)
@@ -48,6 +49,7 @@ data class TestQuery(val  functions:List<Func>, val names:List<String> , val que
             }
             else break
         }
+        println(System.currentTimeMillis())
         }
     } 
 }

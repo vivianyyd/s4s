@@ -31,8 +31,9 @@ private val charEx by lazy{
 } 
 private val substituteEx by lazy{
     mutableListOf<Example>(
-        Example(listOf("first phrase, second phrase, third phrase", "phrase", "_"), "first _, second _, third _"),
-        Example(listOf("first phrase, second phrase, third phrase", "phrase", "_"), "first __________, second __________, third __________"),
+        Example(listOf("1 x-, 2 x-", "x-", "_"), "1 _, 2 _"),
+        Example(listOf("1 x, 2 x", "x", "__"), "1 __, 2 __"),
+        Example(listOf("1x, 2x", "x", "___"), "1___, 2___"),
         Example(listOf("cat", "dog", "fish"), "cat")
     )
 } 
@@ -57,7 +58,7 @@ private val caseEx by lazy{
 } 
 private val substringFunc = Func(null,Type(listOf(String::class, Int::class, Int::class), String::class), subEx, mutableListOf<Example>())
 private val concatFunc = Func(null,Type(listOf(String::class, String::class), String::class), concatEx, mutableListOf<Example>())
-private val charFunc=Func(null,Type(listOf(String::class, Int::class), String::class), charEx, mutableListOf<Example>())
+//private val charFunc=Func(null,Type(listOf(String::class, Int::class), String::class), charEx, mutableListOf<Example>())
 private val caseFunc=Func(null,Type(listOf(String::class), String::class), caseEx, mutableListOf<Example>())
 private val substituteFunc=Func(null,Type(listOf(String::class, String::class, String::class), String::class), substituteEx, mutableListOf<Example>())
 private val substitute1Func=Func(null,Type(listOf(String::class, String::class, String::class), String::class), substitute1Ex, mutableListOf<Example>())
@@ -70,8 +71,8 @@ object StringImpl : UPrimImpl {
             else -> throw UnsupportedOperationException("Length is not implemented for $x")
         }
 }
-private val funlist = listOf<Func>(substringFunc, concatFunc,charFunc, substituteFunc, substitute1Func, selectFunc, caseFunc)
-private val namelist = listOf<String>("substring", "concat", "char","substitute", "subFirst", "select", "uppercase")
+private val funlist = listOf<Func>(substringFunc, concatFunc, substituteFunc, substitute1Func, selectFunc, caseFunc)
+private val namelist = listOf<String>("substring", "concat",  "substitute", "subFirst", "select", "uppercase")
 val stringquery by lazy {
     Query(funlist, StringImpl)
 }
