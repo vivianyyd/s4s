@@ -30,6 +30,7 @@ fun callSketch(input: String): String {
 fun main(args: Array<String>) {
     listTest.runTest()
     arithmeticTest.runTest()
+    stringTest.runTest()
 }
 
 fun String.runCommand( 

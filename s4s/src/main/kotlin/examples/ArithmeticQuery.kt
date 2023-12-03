@@ -19,13 +19,15 @@ private val sumEx by lazy{
 private val diffEx by lazy{
     mutableListOf<Example>(
         Example(listOf(1, 3), -2), 
-        Example(listOf(1, 0), 1)
+        Example(listOf(0, 1), 1), 
+        Example(listOf(1,0), 1)
     )
 } 
 private val mulEx by lazy{
     mutableListOf<Example>(
         Example(listOf(2, 2), 4),
-        Example(listOf(1, 0), 0) 
+        Example(listOf(1, 0), 0),
+        Example(listOf(0, 0), 0)  
     )
 } 
 private val maxEx by lazy{
