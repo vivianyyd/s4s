@@ -103,6 +103,15 @@ private val filterby0Ex by lazy{
         Example(listOf(listOf(1,-1,0,2,4)), listOf(1,2,4))
     )
 }
+
+private val replaceEx by lazy{
+    mutableListOf<Example>(
+        Example(listOf(listOf(1, 2), 1, 3), listOf(1,3)),
+        Example(listOf(listOf(0), 0, 2), listOf(2)),
+        Example(listOf(listOf(-1,2,4),2,5), listOf(-1,2,5))
+    )
+}
+private val replaceFunc = Func(null,Type(listOf(MutableList::class, Int::class,Int::class), List::class), replaceEx, mutableListOf<Example>())
 private val addFunc = Func(null,Type(listOf(MutableList::class, Int::class), List::class), addEx, mutableListOf<Example>())
 private val addAllFunc = Func(null, Type(listOf(MutableList::class, List::class), List::class), addAllEx, mutableListOf<Example>())
 private val dupFunc =  Func(null, Type(listOf(List::class), List::class), dupEx, mutableListOf<Example>())
@@ -125,8 +134,10 @@ object ListImpl : UPrimImpl {
             else -> throw UnsupportedOperationException("Length is not implemented for $x")
         }
 }
-private val funlist = listOf(addFunc, addAllFunc, dupFunc,delAllFunc,delFirstFunc,dropFunc,maxFunc, max3Func,replicateFunc, reverseFunc,snocFunc, mapInt2StringFunc, filterby0Func)
-private val namelist = listOf("add", "addAll", "dup", "delAll", "delFirst", "drop", "max","max3","replicate", "reverse","snoc", "maptype", "filter")
+private val funlist = listOf(replaceFunc)
+private val namelist = listOf("replace")
+//private val funlist = listOf(addFunc, addAllFunc, dupFunc,delAllFunc,delFirstFunc,dropFunc,maxFunc, max3Func,replicateFunc, reverseFunc,snocFunc, mapInt2StringFunc, filterby0Func)
+//private val namelist = listOf("add", "addAll", "dup", "delAll", "delFirst", "drop", "max","max3","replicate", "reverse","snoc", "maptype", "filter")
 val listquery by lazy {
     Query(funlist, ListImpl)
 }
